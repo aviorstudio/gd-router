@@ -1,18 +1,56 @@
 # gd-router
 
-Minimal, game-agnostic scene router addon for Godot.
+Minimal, game-agnostic scene router for Godot 4 (route name → scene path).
+
+- Package: `@aviorstudio/gd-router`
+- Godot: `4.x` (tested on `4.4`)
+
+## Install
+
+Place this folder under `res://addons/<addon-dir>/` (for example `res://addons/@aviorstudio_gd-router/`).
+
+- With `gdpm`: install/link into your project's `addons/`.
+- Manually: copy or symlink this repo folder into `res://addons/<addon-dir>/`.
+
+## Enable
+
+Enable the plugin (`Project Settings -> Plugins -> GD Router`) to install an autoload named `GdRouter`.
+
+Alternatively, add `autoload.gd` as an autoload named `GdRouter`.
 
 ## Files
-- `src/router_service.gd`: router implementation
-- `autoload.gd`: autoload entrypoint (extends `src/router_service.gd`)
-- `plugin.gd` / `plugin.cfg`: editor plugin that installs the `RouterService` autoload
+
+- `plugin.cfg` / `plugin.gd`: editor plugin that installs the `GdRouter` autoload.
+- `autoload.gd`: autoload entrypoint (extends `src/router_service.gd`).
+- `src/router_service.gd`: router implementation.
 
 ## Usage
-- Enable the plugin, then use `GdRouter.go_to(...)`.
-- By default it auto-discovers routes under `res://src/routes` (directories ending in `_route` map to route names without the suffix).
-- Override behavior via `ProjectSettings`:
-  - `gd_router/auto_discover` (bool, default `true`)
-  - `gd_router/routes_dir` (string, default `res://src/routes`)
-  - `gd_router/route_dir_suffix` (string, default `_route`)
-- Or configure explicitly via `GdRouter.set_routes(...)` / `GdRouter.add_route(...)`.
-- Or extend `res://addons/<your-addon>/src/router_service.gd` in your own navigation autoload and call `set_routes(...)` there.
+
+```gdscript
+GdRouter.go_to("home")
+```
+
+Configure routes explicitly:
+
+```gdscript
+GdRouter.set_routes({
+	"home": "res://src/routes/home_route/home_route.tscn",
+	"login": "res://src/routes/login_route/login_route.tscn",
+})
+```
+
+## Configuration
+
+When `gd_router/auto_discover` is enabled, routes are discovered from directories under `gd_router/routes_dir` that end in `gd_router/route_dir_suffix`.
+
+Each route directory must contain a scene named `<dir>/<dir>.tscn` (for example `res://src/routes/home_route/home_route.tscn`).
+
+Project settings:
+
+- `gd_router/auto_discover` (bool, default `true`)
+- `gd_router/routes_dir` (string, default `res://src/routes`)
+- `gd_router/route_dir_suffix` (string, default `_route`)
+
+## Notes
+
+- Auto-discovery is meant to be overridden per-project; disable it and call `set_routes(...)` if your routing layout differs.
