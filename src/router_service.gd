@@ -1,3 +1,4 @@
+class_name RouterService
 extends Node
 
 signal route_changed(route_name: String, scene_path: String)
