@@ -23,11 +23,21 @@ Alternatively, add `autoload.gd` as an autoload named `GdRouter`.
 - `plugin.cfg` / `plugin.gd`: editor plugin that installs the `GdRouter` autoload.
 - `autoload.gd`: autoload entrypoint (extends `src/router_service.gd`).
 - `src/router_service.gd`: router implementation.
+- `src/route_transition_util.gd`: reusable scene fade transition callable for `GdRouter.transition_callable`.
 
 ## Usage
 
 ```gdscript
 GdRouter.go_to("home")
+```
+
+Use the built-in fade transition helper:
+
+```gdscript
+const RouteTransitionUtil = preload("res://addons/@aviorstudio_gd-router/src/route_transition_util.gd")
+
+func _ready() -> void:
+	GdRouter.transition_callable = Callable(RouteTransitionUtil, "transition_to")
 ```
 
 Configure routes explicitly:
