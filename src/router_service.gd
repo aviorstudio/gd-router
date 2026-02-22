@@ -1,5 +1,8 @@
 extends Node
 
+signal route_changed(route_name: String, scene_path: String)
+signal route_not_found(route_name: String)
+
 const SETTINGS_PREFIX := "gd_router/"
 const SETTING_AUTO_DISCOVER := SETTINGS_PREFIX + "auto_discover"
 const SETTING_ROUTES_DIR := SETTINGS_PREFIX + "routes_dir"
@@ -10,6 +13,8 @@ const DEFAULT_ROUTES_DIR := "res://src/routes"
 const DEFAULT_ROUTE_DIR_SUFFIX := "_route"
 
 var _routes: Dictionary[String, String] = {}
+var _current_params: Dictionary[String, Variant] = {}
+var transition_callable: Callable = Callable()
 
 func _enter_tree() -> void:
 	if not _routes.is_empty():
@@ -74,13 +79,23 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 
 	return discovered_routes
 
-func go_to(route_name: String) -> void:
+func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
+	_current_params = params.duplicate(true)
 	var scene_path: String = get_route_path(route_name)
 	if scene_path.is_empty():
 		push_error("%s: Unknown route %s" % [name, route_name])
 		_on_route_not_found(route_name)
 		return
+
+	if transition_callable.is_valid():
+		transition_callable.call(scene_path)
+		_on_route_changed(route_name, scene_path)
+		return
+
 	_safe_change_scene(scene_path, route_name)
+
+func get_params() -> Dictionary[String, Variant]:
+	return _current_params.duplicate(true)
 
 func _safe_change_scene(scene_path: String, route_name: String) -> void:
 	var result: int = get_tree().change_scene_to_file(scene_path)
@@ -91,11 +106,11 @@ func _safe_change_scene(scene_path: String, route_name: String) -> void:
 
 	_on_route_changed(route_name, scene_path)
 
-func _on_route_not_found(_route_name: String) -> void:
-	pass
+func _on_route_not_found(route_name: String) -> void:
+	route_not_found.emit(route_name)
 
-func _on_route_changed(_route_name: String, _scene_path: String) -> void:
-	pass
+func _on_route_changed(route_name: String, scene_path: String) -> void:
+	route_changed.emit(route_name, scene_path)
 
 func _on_route_change_failed(_route_name: String, _scene_path: String, _error_code: int) -> void:
 	pass
