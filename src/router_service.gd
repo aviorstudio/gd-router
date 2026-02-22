@@ -1,6 +1,8 @@
 class_name RouterService
 extends Node
 
+const RouteTransitionUtil = preload("route_transition_util.gd")
+
 signal route_changed(route_name: String, scene_path: String)
 signal route_not_found(route_name: String)
 
@@ -16,6 +18,9 @@ const DEFAULT_ROUTE_DIR_SUFFIX := "_route"
 var _routes: Dictionary[String, String] = {}
 var _current_params: Dictionary[String, Variant] = {}
 var transition_callable: Callable = Callable()
+var route_guard: Callable = Callable()
+var _history: Array[String] = []
+const MAX_HISTORY_SIZE := 20
 
 func _enter_tree() -> void:
 	if not _routes.is_empty():
@@ -29,9 +34,13 @@ func _enter_tree() -> void:
 	var route_dir_suffix: String = str(ProjectSettings.get_setting(SETTING_ROUTE_DIR_SUFFIX, DEFAULT_ROUTE_DIR_SUFFIX))
 	var discovered_routes: Dictionary[String, String] = discover_routes(routes_dir, route_dir_suffix)
 	if discovered_routes.is_empty():
+		if not transition_callable.is_valid():
+			transition_callable = Callable(RouteTransitionUtil, "transition_to")
 		return
 
 	set_routes(discovered_routes)
+	if not transition_callable.is_valid():
+		transition_callable = Callable(RouteTransitionUtil, "transition_to")
 
 func set_routes(routes: Dictionary[String, String]) -> void:
 	var copied_routes: Dictionary[String, String] = {}
@@ -81,15 +90,22 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 	return discovered_routes
 
 func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
-	_current_params = params.duplicate(true)
+	var copied_params: Dictionary[String, Variant] = params.duplicate(true)
+	if route_guard.is_valid():
+		var allowed: Variant = route_guard.call(route_name, copied_params)
+		if not bool(allowed):
+			return
+
+	_current_params = copied_params
 	var scene_path: String = get_route_path(route_name)
 	if scene_path.is_empty():
 		push_error("%s: Unknown route %s" % [name, route_name])
 		_on_route_not_found(route_name)
 		return
 
-	if transition_callable.is_valid():
-		transition_callable.call(scene_path)
+	var resolved_transition: Callable = _get_transition_callable()
+	if resolved_transition.is_valid():
+		resolved_transition.call(scene_path)
 		_on_route_changed(route_name, scene_path)
 		return
 
@@ -97,6 +113,16 @@ func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void
 
 func get_params() -> Dictionary[String, Variant]:
 	return _current_params.duplicate(true)
+
+func go_back() -> void:
+	if _history.size() <= 1:
+		return
+	_history.pop_back()
+	var previous: String = _history.pop_back()
+	go_to(previous)
+
+func get_current_route() -> String:
+	return _history.back() if not _history.is_empty() else ""
 
 func _safe_change_scene(scene_path: String, route_name: String) -> void:
 	var result: int = get_tree().change_scene_to_file(scene_path)
@@ -111,7 +137,15 @@ func _on_route_not_found(route_name: String) -> void:
 	route_not_found.emit(route_name)
 
 func _on_route_changed(route_name: String, scene_path: String) -> void:
+	_history.append(route_name)
+	while _history.size() > MAX_HISTORY_SIZE:
+		_history.pop_front()
 	route_changed.emit(route_name, scene_path)
 
 func _on_route_change_failed(_route_name: String, _scene_path: String, _error_code: int) -> void:
 	pass
+
+func _get_transition_callable() -> Callable:
+	if transition_callable.is_valid():
+		return transition_callable
+	return Callable(RouteTransitionUtil, "transition_to")
