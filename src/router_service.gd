@@ -1,3 +1,4 @@
+## Scene router service with optional auto-discovery and route history.
 class_name RouterService
 extends Node
 
