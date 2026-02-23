@@ -1,66 +1,40 @@
 # gd-router
 
-Minimal, game-agnostic scene router for Godot 4 (route name → scene path).
+Scene routing service for Godot 4 with optional auto-discovery and transitions.
 
-- Package: `@aviorstudio/gd-router`
-- Godot: `4.x` (tested on `4.4`)
+## Installation
 
-## Install
+### Via gdpm
+`gdpm install @aviorstudio/gd-router`
 
-Place this folder under `res://addons/<addon-dir>/` (for example `res://addons/@aviorstudio_gd-router/`).
+### Manual
+Copy this directory into `addons/@aviorstudio_gd-router/` and enable the plugin.
 
-- With `gdpm`: install/link into your project's `addons/`.
-- Manually: copy or symlink this repo folder into `res://addons/<addon-dir>/`.
-
-## Enable
-
-Enable the plugin (`Project Settings -> Plugins -> GD Router`) to install an autoload named `GdRouter`.
-
-Alternatively, add `autoload.gd` as an autoload named `GdRouter`.
-
-## Files
-
-- `plugin.cfg` / `plugin.gd`: editor plugin that installs the `GdRouter` autoload.
-- `autoload.gd`: autoload entrypoint (extends `src/router_service.gd`).
-- `src/router_service.gd`: router implementation.
-- `src/route_transition_util.gd`: reusable scene fade transition callable for `GdRouter.transition_callable`.
-
-## Usage
-
-```gdscript
-GdRouter.go_to("home")
-```
-
-Use the built-in fade transition helper:
-
-```gdscript
-const RouteTransitionUtil = preload("res://addons/@aviorstudio_gd-router/src/route_transition_util.gd")
-
-func _ready() -> void:
-	GdRouter.transition_callable = Callable(RouteTransitionUtil, "transition_to")
-```
-
-Configure routes explicitly:
+## Quick Start
 
 ```gdscript
 GdRouter.set_routes({
 	"home": "res://src/routes/home_route/home_route.tscn",
-	"login": "res://src/routes/login_route/login_route.tscn",
 })
+GdRouter.go_to("home")
 ```
+
+## API Reference
+
+- `RouterService`: route registration, navigation, history, and params.
+- `RouteTransitionUtil`: reusable crossfade scene transition callable.
+- `autoload.gd`: `GdRouter` autoload entrypoint.
 
 ## Configuration
 
-When `gd_router/auto_discover` is enabled, routes are discovered from directories under `gd_router/routes_dir` that end in `gd_router/route_dir_suffix`.
+- `gd_router/auto_discover`
+- `gd_router/routes_dir`
+- `gd_router/route_dir_suffix`
 
-Each route directory must contain a scene named `<dir>/<dir>.tscn` (for example `res://src/routes/home_route/home_route.tscn`).
+## Testing
 
-Project settings:
+`./run_tests.sh`
 
-- `gd_router/auto_discover` (bool, default `true`)
-- `gd_router/routes_dir` (string, default `res://src/routes`)
-- `gd_router/route_dir_suffix` (string, default `_route`)
+## License
 
-## Notes
-
-- Auto-discovery is meant to be overridden per-project; disable it and call `set_routes(...)` if your routing layout differs.
+MIT
