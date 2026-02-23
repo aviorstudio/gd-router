@@ -1,6 +1,7 @@
 extends SceneTree
 
-const RouteTransitionUtil = preload("res://src/route_transition_util.gd")
+func _load_route_transition_util() -> Variant:
+	return load("res://src/route_transition_util.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -16,6 +17,10 @@ func _initialize() -> void:
 	quit(1)
 
 func _test_can_instantiate_route_transition_util(failures: Array[String]) -> void:
-	var instance := RouteTransitionUtil.new()
+	var route_transition_util: Variant = _load_route_transition_util()
+	if route_transition_util == null:
+		failures.append("Expected res://src/route_transition_util.gd to load")
+		return
+	var instance = route_transition_util.new()
 	if instance == null:
 		failures.append("Expected RouteTransitionUtil.new() to return an instance")

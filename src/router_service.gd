@@ -67,11 +67,14 @@ func set_config(new_config: RouterConfig) -> void:
 	config = new_config
 
 ## Sets the entire route table with typed route entries.
-func set_routes(routes: Dictionary[String, RouteEntry]) -> void:
+func set_routes(routes: Dictionary) -> void:
 	var copied_routes: Dictionary[String, RouteEntry] = {}
-	for route_name: String in routes:
-		var route: RouteEntry = routes.get(route_name)
+	for route_key: Variant in routes.keys():
+		var route_name: String = str(route_key)
+		var route: Variant = routes.get(route_key)
 		if route == null:
+			continue
+		if not route is RouteEntry:
 			continue
 		copied_routes[route_name] = route
 	_routes = copied_routes
