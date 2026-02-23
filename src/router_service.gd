@@ -218,11 +218,11 @@ func _run_middleware(route_name: String, params: Dictionary[String, Variant]) ->
 	for middleware: Callable in _middleware_chain:
 		if not middleware.is_valid():
 			continue
-		var proceed: bool = false
+		var middleware_state: Dictionary[String, bool] = {"proceed": false}
 		var next_callable: Callable = func() -> void:
-			proceed = true
+			middleware_state["proceed"] = true
 		middleware.call(route_name, params, next_callable)
-		if not proceed:
+		if not bool(middleware_state.get("proceed", false)):
 			return false
 
 	return true
