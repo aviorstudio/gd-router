@@ -27,11 +27,16 @@ class RouteEntry extends RefCounted:
 		name = route_name
 		scene_path = route_scene_path
 
+## Router runtime configuration.
+class RouterConfig extends RefCounted:
+	var transition_duration_s: float = RouteTransitionUtil.DEFAULT_FADE_DURATION
+
 var _routes: Dictionary[String, RouteEntry] = {}
 var _current_params: Dictionary[String, Variant] = {}
 var transition_callable: Callable = Callable()
 var _middleware_chain: Array[Callable] = []
 var _history: Array[String] = []
+var config: RouterConfig = RouterConfig.new()
 const MAX_HISTORY_SIZE := 20
 
 func _enter_tree() -> void:
@@ -47,13 +52,21 @@ func _enter_tree() -> void:
 	var discovered_routes: Dictionary[String, RouteEntry] = discover_routes(routes_dir, route_dir_suffix)
 	if discovered_routes.is_empty():
 		if not transition_callable.is_valid():
-			transition_callable = Callable(RouteTransitionUtil, "transition_to")
+			transition_callable = Callable(self, "_default_transition")
 		return
 
 	set_routes(discovered_routes)
 	if not transition_callable.is_valid():
-		transition_callable = Callable(RouteTransitionUtil, "transition_to")
+		transition_callable = Callable(self, "_default_transition")
 
+## Replaces router configuration values.
+func set_config(new_config: RouterConfig) -> void:
+	if new_config == null:
+		config = RouterConfig.new()
+		return
+	config = new_config
+
+## Sets the entire route table with typed route entries.
 func set_routes(routes: Dictionary[String, RouteEntry]) -> void:
 	var copied_routes: Dictionary[String, RouteEntry] = {}
 	for route_name: String in routes:
@@ -63,29 +76,35 @@ func set_routes(routes: Dictionary[String, RouteEntry]) -> void:
 		copied_routes[route_name] = route
 	_routes = copied_routes
 
+## Adds or replaces a single route entry.
 func add_route(entry: RouteEntry) -> void:
 	if entry == null or entry.name.is_empty() or entry.scene_path.is_empty():
 		return
 	_routes[entry.name] = entry
 
+## Adds a middleware callable with signature `(route_name, params, next) -> void`.
 func add_middleware(middleware: Callable) -> void:
 	if not middleware.is_valid():
 		return
 	_middleware_chain.append(middleware)
 
+## Removes a route by name.
 func remove_route(route_name: String) -> void:
 	if _routes.has(route_name):
 		_routes.erase(route_name)
 
+## Returns true when a route name exists in the registry.
 func has_route(route_name: String) -> bool:
 	return _routes.has(route_name)
 
+## Returns the scene path for a route name, or empty string when missing.
 func get_route_path(route_name: String) -> String:
 	var route: RouteEntry = _routes.get(route_name, null)
 	if route == null:
 		return ""
 	return route.scene_path
 
+## Auto-discovers route scenes under the configured routes directory.
 func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUTE_DIR_SUFFIX) -> Dictionary[String, RouteEntry]:
 	var discovered_routes: Dictionary[String, RouteEntry] = {}
 	if routes_dir.is_empty():
@@ -114,6 +133,7 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 
 	return discovered_routes
 
+## Navigates to a route name with optional typed params.
 func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
 	var copied_params: Dictionary[String, Variant] = params.duplicate(true)
 	var route_entry: RouteEntry = _routes.get(route_name, null)
@@ -139,9 +159,15 @@ func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void
 
 	_safe_change_scene(scene_path, route_name)
 
+## Returns a deep-copied dictionary of current route params.
 func get_params() -> Dictionary[String, Variant]:
 	return _current_params.duplicate(true)
 
+## Returns a single current route param value with fallback default.
+func get_param(key: String, default: Variant = null) -> Variant:
+	return _current_params.get(key, default)
+
+## Navigates to the previous route in history when available.
 func go_back() -> void:
 	if _history.size() <= 1:
 		return
@@ -149,6 +175,7 @@ func go_back() -> void:
 	var previous: String = _history.pop_back()
 	go_to(previous)
 
+## Returns the current route name from history.
 func get_current_route() -> String:
 	return _history.back() if not _history.is_empty() else ""
 
@@ -176,7 +203,10 @@ func _on_route_change_failed(_route_name: String, _scene_path: String, _error_co
 func _get_transition_callable() -> Callable:
 	if transition_callable.is_valid():
 		return transition_callable
-	return Callable(RouteTransitionUtil, "transition_to")
+	return Callable(self, "_default_transition")
+
+func _default_transition(scene_path: String) -> void:
+	RouteTransitionUtil.transition_to(scene_path, config.transition_duration_s)
 
 func _run_middleware(route_name: String, params: Dictionary[String, Variant]) -> bool:
 	if _middleware_chain.is_empty():
