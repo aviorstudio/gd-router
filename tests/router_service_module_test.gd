@@ -17,7 +17,7 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	_test_route_not_found_signal(failures)
 	_test_transition_callable_and_params(failures)
-	_test_route_guard_blocks_navigation(failures)
+	_test_middleware_blocks_navigation(failures)
 	_test_history_and_go_back(failures)
 	_test_default_transition_callable_is_set(failures)
 
@@ -72,7 +72,7 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 		failures.append("router params were not stored by go_to")
 	router.free()
 
-func _test_route_guard_blocks_navigation(failures: Array[String]) -> void:
+func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
 	var router := RouterService.new()
 	router.set_routes({
 		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn")
@@ -80,12 +80,12 @@ func _test_route_guard_blocks_navigation(failures: Array[String]) -> void:
 	router.transition_callable = Callable(self, "_capture_transition")
 	_allow_routes = false
 	_transition_called = false
-	router.route_guard = Callable(self, "_route_guard")
+	router.add_middleware(Callable(self, "_route_middleware"))
 
 	router.go_to("home", {"blocked": true})
 
 	if _transition_called:
-		failures.append("Expected route_guard=false to block transition")
+		failures.append("Expected middleware to block transition")
 	if router.get_current_route() != "":
 		failures.append("Expected blocked navigation to keep current route empty")
 	router.free()
@@ -131,5 +131,6 @@ func _capture_transition(scene_path: String) -> void:
 	_last_transition_path = scene_path
 	_transition_call_count += 1
 
-func _route_guard(_route_name: String, _params: Dictionary[String, Variant]) -> bool:
-	return _allow_routes
+func _route_middleware(_route_name: String, _params: Dictionary[String, Variant], next: Callable) -> void:
+	if _allow_routes:
+		next.call()

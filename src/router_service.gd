@@ -30,7 +30,7 @@ class RouteEntry extends RefCounted:
 var _routes: Dictionary[String, RouteEntry] = {}
 var _current_params: Dictionary[String, Variant] = {}
 var transition_callable: Callable = Callable()
-var route_guard: Callable = Callable()
+var _middleware_chain: Array[Callable] = []
 var _history: Array[String] = []
 const MAX_HISTORY_SIZE := 20
 
@@ -67,6 +67,11 @@ func add_route(entry: RouteEntry) -> void:
 	if entry == null or entry.name.is_empty() or entry.scene_path.is_empty():
 		return
 	_routes[entry.name] = entry
+
+func add_middleware(middleware: Callable) -> void:
+	if not middleware.is_valid():
+		return
+	_middleware_chain.append(middleware)
 
 func remove_route(route_name: String) -> void:
 	if _routes.has(route_name):
@@ -116,10 +121,8 @@ func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void
 		push_error("%s: Unknown route %s" % [name, route_name])
 		_on_route_not_found(route_name)
 		return
-	if route_guard.is_valid():
-		var allowed: Variant = route_guard.call(route_name, copied_params)
-		if not bool(allowed):
-			return
+	if not _run_middleware(route_name, copied_params):
+		return
 	if route_entry.guard.is_valid():
 		var route_allowed: Variant = route_entry.guard.call(route_name, copied_params)
 		if not bool(route_allowed):
@@ -174,3 +177,31 @@ func _get_transition_callable() -> Callable:
 	if transition_callable.is_valid():
 		return transition_callable
 	return Callable(RouteTransitionUtil, "transition_to")
+
+func _run_middleware(route_name: String, params: Dictionary[String, Variant]) -> bool:
+	if _middleware_chain.is_empty():
+		return true
+
+	var allowed: bool = false
+	var run_next: Callable
+	run_next = func(index: int) -> void:
+		if index >= _middleware_chain.size():
+			allowed = true
+			return
+
+		var middleware: Callable = _middleware_chain[index]
+		if not middleware.is_valid():
+			run_next.call(index + 1)
+			return
+
+		var next_called: bool = false
+		var next_callable: Callable = func() -> void:
+			if next_called:
+				return
+			next_called = true
+			run_next.call(index + 1)
+
+		middleware.call(route_name, params, next_callable)
+
+	run_next.call(0)
+	return allowed
