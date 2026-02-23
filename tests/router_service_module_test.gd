@@ -70,6 +70,10 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 	var stored_params: Dictionary[String, Variant] = router.get_params()
 	if stored_params.get("match_id", "") != "abc-123":
 		failures.append("router params were not stored by go_to")
+	if router.get_param("match_id", "") != "abc-123":
+		failures.append("get_param should return stored param value")
+	if router.get_param("missing_key", "fallback") != "fallback":
+		failures.append("get_param should return default for missing key")
 	router.free()
 
 func _test_middleware_blocks_navigation(failures: Array[String]) -> void:

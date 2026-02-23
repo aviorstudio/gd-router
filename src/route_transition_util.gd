@@ -2,12 +2,12 @@ extends RefCounted
 ## Crossfade scene transition utilities for router scene changes.
 class_name RouteTransitionUtil
 
-const FADE_DURATION: float = 0.15
+const DEFAULT_FADE_DURATION: float = 0.15
 const OVERLAY_NAME: String = "RouteTransitionOverlay"
 const OVERLAY_Z_INDEX: int = 5000
 
 ## Transitions to a new scene path with viewport crossfade.
-static func transition_to(scene_path: String) -> void:
+static func transition_to(scene_path: String, fade_duration_s: float = DEFAULT_FADE_DURATION) -> void:
 	if scene_path.is_empty():
 		return
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
@@ -26,7 +26,7 @@ static func transition_to(scene_path: String) -> void:
 	next_scene.owner = null
 	if next_scene is CanvasItem:
 		(next_scene as CanvasItem).modulate.a = 0.0
-	_start_crossfade(tree, next_scene, overlay)
+	_start_crossfade(tree, next_scene, overlay, fade_duration_s)
 
 ## Creates a fullscreen overlay from the current viewport snapshot.
 static func _create_overlay(tree: SceneTree) -> TextureRect:
@@ -67,18 +67,19 @@ static func _instantiate_scene(scene_path: String) -> Node:
 	return packed_scene.instantiate()
 
 ## Runs parallel fade-out/fade-in tween between overlay and next scene.
-static func _start_crossfade(tree: SceneTree, next_scene: Node, overlay: TextureRect) -> void:
+static func _start_crossfade(tree: SceneTree, next_scene: Node, overlay: TextureRect, fade_duration_s: float) -> void:
 	if overlay == null or not is_instance_valid(overlay):
 		return
 	if next_scene == null or not is_instance_valid(next_scene):
 		overlay.queue_free()
 		return
+	var duration: float = maxf(fade_duration_s, 0.0)
 	var tween: Tween = overlay.create_tween()
 	tween.set_parallel(true)
 	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(overlay, "modulate:a", 0.0, FADE_DURATION)
+	tween.tween_property(overlay, "modulate:a", 0.0, duration)
 	if next_scene is CanvasItem:
-		tween.tween_property(next_scene, "modulate:a", 1.0, FADE_DURATION)
+		tween.tween_property(next_scene, "modulate:a", 1.0, duration)
 	tween.finished.connect(_cleanup_transition.bind(tree, overlay), CONNECT_ONE_SHOT)
 
 ## Cleans up transition overlay and previous scene references.
