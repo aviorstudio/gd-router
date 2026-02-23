@@ -16,7 +16,18 @@ const DEFAULT_AUTO_DISCOVER := true
 const DEFAULT_ROUTES_DIR := "res://src/routes"
 const DEFAULT_ROUTE_DIR_SUFFIX := "_route"
 
-var _routes: Dictionary[String, String] = {}
+## Typed route definition used by RouterService.
+class RouteEntry extends RefCounted:
+	var name: String = ""
+	var scene_path: String = ""
+	var guard: Callable = Callable()
+	var metadata: Dictionary[String, Variant] = {}
+
+	func _init(route_name: String = "", route_scene_path: String = "") -> void:
+		name = route_name
+		scene_path = route_scene_path
+
+var _routes: Dictionary[String, RouteEntry] = {}
 var _current_params: Dictionary[String, Variant] = {}
 var transition_callable: Callable = Callable()
 var route_guard: Callable = Callable()
@@ -33,7 +44,7 @@ func _enter_tree() -> void:
 
 	var routes_dir: String = str(ProjectSettings.get_setting(SETTING_ROUTES_DIR, DEFAULT_ROUTES_DIR))
 	var route_dir_suffix: String = str(ProjectSettings.get_setting(SETTING_ROUTE_DIR_SUFFIX, DEFAULT_ROUTE_DIR_SUFFIX))
-	var discovered_routes: Dictionary[String, String] = discover_routes(routes_dir, route_dir_suffix)
+	var discovered_routes: Dictionary[String, RouteEntry] = discover_routes(routes_dir, route_dir_suffix)
 	if discovered_routes.is_empty():
 		if not transition_callable.is_valid():
 			transition_callable = Callable(RouteTransitionUtil, "transition_to")
@@ -43,14 +54,19 @@ func _enter_tree() -> void:
 	if not transition_callable.is_valid():
 		transition_callable = Callable(RouteTransitionUtil, "transition_to")
 
-func set_routes(routes: Dictionary[String, String]) -> void:
-	var copied_routes: Dictionary[String, String] = {}
+func set_routes(routes: Dictionary[String, RouteEntry]) -> void:
+	var copied_routes: Dictionary[String, RouteEntry] = {}
 	for route_name: String in routes:
-		copied_routes[route_name] = routes[route_name]
+		var route: RouteEntry = routes.get(route_name)
+		if route == null:
+			continue
+		copied_routes[route_name] = route
 	_routes = copied_routes
 
-func add_route(route_name: String, scene_path: String) -> void:
-	_routes[route_name] = scene_path
+func add_route(entry: RouteEntry) -> void:
+	if entry == null or entry.name.is_empty() or entry.scene_path.is_empty():
+		return
+	_routes[entry.name] = entry
 
 func remove_route(route_name: String) -> void:
 	if _routes.has(route_name):
@@ -60,10 +76,13 @@ func has_route(route_name: String) -> bool:
 	return _routes.has(route_name)
 
 func get_route_path(route_name: String) -> String:
-	return _routes.get(route_name, "")
+	var route: RouteEntry = _routes.get(route_name, null)
+	if route == null:
+		return ""
+	return route.scene_path
 
-func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUTE_DIR_SUFFIX) -> Dictionary[String, String]:
-	var discovered_routes: Dictionary[String, String] = {}
+func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUTE_DIR_SUFFIX) -> Dictionary[String, RouteEntry]:
+	var discovered_routes: Dictionary[String, RouteEntry] = {}
 	if routes_dir.is_empty():
 		return discovered_routes
 
@@ -82,7 +101,7 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 			if not route_name.is_empty():
 				var scene_path: String = routes_dir.path_join(entry).path_join(entry + ".tscn")
 				if ResourceLoader.exists(scene_path):
-					discovered_routes[route_name] = scene_path
+					discovered_routes[route_name] = RouteEntry.new(route_name, scene_path)
 				else:
 					push_warning("%s: Skipping route %s, missing scene at %s" % [name, route_name, scene_path])
 		entry = dir.get_next()
@@ -92,17 +111,22 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 
 func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
 	var copied_params: Dictionary[String, Variant] = params.duplicate(true)
+	var route_entry: RouteEntry = _routes.get(route_name, null)
+	if route_entry == null:
+		push_error("%s: Unknown route %s" % [name, route_name])
+		_on_route_not_found(route_name)
+		return
 	if route_guard.is_valid():
 		var allowed: Variant = route_guard.call(route_name, copied_params)
 		if not bool(allowed):
 			return
+	if route_entry.guard.is_valid():
+		var route_allowed: Variant = route_entry.guard.call(route_name, copied_params)
+		if not bool(route_allowed):
+			return
 
 	_current_params = copied_params
-	var scene_path: String = get_route_path(route_name)
-	if scene_path.is_empty():
-		push_error("%s: Unknown route %s" % [name, route_name])
-		_on_route_not_found(route_name)
-		return
+	var scene_path: String = route_entry.scene_path
 
 	var resolved_transition: Callable = _get_transition_callable()
 	if resolved_transition.is_valid():

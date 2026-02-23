@@ -10,6 +10,9 @@ var _changed_scene_path: String = ""
 var _allow_routes: bool = true
 var _transition_call_count: int = 0
 
+func _route_entry(route_name: String, scene_path: String) -> RouterService.RouteEntry:
+	return RouterService.RouteEntry.new(route_name, scene_path)
+
 func _initialize() -> void:
 	var failures: Array[String] = []
 	_test_route_not_found_signal(failures)
@@ -43,7 +46,7 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 
 	var router := RouterService.new()
 	router.set_routes({
-		"home": "res://src/routes/home_route/home_route.tscn"
+		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn")
 	})
 
 	_changed_route_name = ""
@@ -72,7 +75,7 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 func _test_route_guard_blocks_navigation(failures: Array[String]) -> void:
 	var router := RouterService.new()
 	router.set_routes({
-		"home": "res://src/routes/home_route/home_route.tscn"
+		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn")
 	})
 	router.transition_callable = Callable(self, "_capture_transition")
 	_allow_routes = false
@@ -92,8 +95,8 @@ func _test_history_and_go_back(failures: Array[String]) -> void:
 	_transition_call_count = 0
 	var router := RouterService.new()
 	router.set_routes({
-		"home": "res://src/routes/home_route/home_route.tscn",
-		"settings": "res://src/routes/settings_route/settings_route.tscn",
+		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn"),
+		"settings": _route_entry("settings", "res://src/routes/settings_route/settings_route.tscn"),
 	})
 	router.transition_callable = Callable(self, "_capture_transition")
 
