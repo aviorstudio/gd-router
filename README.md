@@ -33,7 +33,7 @@ GdRouter.go_to("home")
 
 ## Testing
 
-`./run_tests.sh`
+`./tests/test.sh`
 
 ## License
 
