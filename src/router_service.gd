@@ -215,26 +215,14 @@ func _run_middleware(route_name: String, params: Dictionary[String, Variant]) ->
 	if _middleware_chain.is_empty():
 		return true
 
-	var allowed: bool = false
-	var run_next: Callable
-	run_next = func(index: int) -> void:
-		if index >= _middleware_chain.size():
-			allowed = true
-			return
-
-		var middleware: Callable = _middleware_chain[index]
+	for middleware: Callable in _middleware_chain:
 		if not middleware.is_valid():
-			run_next.call(index + 1)
-			return
-
-		var next_called: bool = false
+			continue
+		var proceed: bool = false
 		var next_callable: Callable = func() -> void:
-			if next_called:
-				return
-			next_called = true
-			run_next.call(index + 1)
-
+			proceed = true
 		middleware.call(route_name, params, next_callable)
+		if not proceed:
+			return false
 
-	run_next.call(0)
-	return allowed
+	return true
