@@ -1,7 +1,5 @@
 extends SceneTree
 
-const RouterService = preload("res://src/router_service.gd")
-
 var _transition_called: bool = false
 var _last_transition_path: String = ""
 var _missing_route_name: String = ""
@@ -10,8 +8,11 @@ var _changed_scene_path: String = ""
 var _allow_routes: bool = true
 var _transition_call_count: int = 0
 
-func _route_entry(route_name: String, scene_path: String) -> RouterService.RouteEntry:
-	return RouterService.RouteEntry.new(route_name, scene_path)
+func _load_router_service() -> Variant:
+	return load("res://src/router_service.gd")
+
+func _route_entry(router_service: Variant, route_name: String, scene_path: String) -> Variant:
+	return router_service.RouteEntry.new(route_name, scene_path)
 
 func _initialize() -> void:
 	var failures: Array[String] = []
@@ -31,22 +32,31 @@ func _initialize() -> void:
 	quit(1)
 
 func _test_route_not_found_signal(failures: Array[String]) -> void:
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
 	_missing_route_name = ""
-	var router := RouterService.new()
+	var router = router_service.new()
 	router.route_not_found.connect(Callable(self, "_capture_route_not_found"))
-	router.go_to("missing", {})
+	var params: Dictionary[String, Variant] = {}
+	router.go_to("missing", params)
 	if _missing_route_name != "missing":
 		failures.append("route_not_found signal not emitted with expected route name")
 	router.free()
 
 func _test_transition_callable_and_params(failures: Array[String]) -> void:
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
 	_transition_called = false
 	_last_transition_path = ""
 	_transition_call_count = 0
 
-	var router := RouterService.new()
+	var router = router_service.new()
 	router.set_routes({
-		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn")
+		"home": _route_entry(router_service, "home", "res://src/routes/home_route/home_route.tscn")
 	})
 
 	_changed_route_name = ""
@@ -77,16 +87,20 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 	router.free()
 
 func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
-	var router := RouterService.new()
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
+	var router = router_service.new()
 	router.set_routes({
-		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn")
+		"home": _route_entry(router_service, "home", "res://src/routes/home_route/home_route.tscn")
 	})
 	router.transition_callable = Callable(self, "_capture_transition")
 	_allow_routes = false
 	_transition_called = false
 	router.add_middleware(Callable(self, "_route_middleware"))
-
-	router.go_to("home", {"blocked": true})
+	var blocked_params: Dictionary[String, Variant] = {"blocked": true}
+	router.go_to("home", blocked_params)
 
 	if _transition_called:
 		failures.append("Expected middleware to block transition")
@@ -96,11 +110,15 @@ func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
 	_allow_routes = true
 
 func _test_history_and_go_back(failures: Array[String]) -> void:
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
 	_transition_call_count = 0
-	var router := RouterService.new()
+	var router = router_service.new()
 	router.set_routes({
-		"home": _route_entry("home", "res://src/routes/home_route/home_route.tscn"),
-		"settings": _route_entry("settings", "res://src/routes/settings_route/settings_route.tscn"),
+		"home": _route_entry(router_service, "home", "res://src/routes/home_route/home_route.tscn"),
+		"settings": _route_entry(router_service, "settings", "res://src/routes/settings_route/settings_route.tscn"),
 	})
 	router.transition_callable = Callable(self, "_capture_transition")
 
@@ -117,7 +135,11 @@ func _test_history_and_go_back(failures: Array[String]) -> void:
 	router.free()
 
 func _test_default_transition_callable_is_set(failures: Array[String]) -> void:
-	var router := RouterService.new()
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
+	var router = router_service.new()
 	router._enter_tree()
 	if not router.transition_callable.is_valid():
 		failures.append("Expected default transition_callable to be valid after _enter_tree")
