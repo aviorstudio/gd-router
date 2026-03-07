@@ -8,6 +8,12 @@ var _changed_scene_path: String = ""
 var _allow_routes: bool = true
 var _transition_call_count: int = 0
 
+class TestRouteMiddleware extends RefCounted:
+	var allow_routes: bool = true
+	func run(_route_name: String, _params: Dictionary[String, Variant], next: Callable) -> void:
+		if allow_routes:
+			next.call()
+
 func _load_router_service() -> Variant:
 	return load("res://src/router_service.gd")
 
@@ -19,6 +25,7 @@ func _initialize() -> void:
 	_test_route_not_found_signal(failures)
 	_test_transition_callable_and_params(failures)
 	_test_middleware_blocks_navigation(failures)
+	_test_object_middleware_blocks_navigation(failures)
 	_test_history_and_go_back(failures)
 	_test_default_transition_callable_is_set(failures)
 
@@ -108,6 +115,28 @@ func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
 		failures.append("Expected blocked navigation to keep current route empty")
 	router.free()
 	_allow_routes = true
+
+func _test_object_middleware_blocks_navigation(failures: Array[String]) -> void:
+	var router_service: Variant = _load_router_service()
+	if router_service == null:
+		failures.append("Failed to load res://src/router_service.gd")
+		return
+	var router = router_service.new()
+	router.set_routes({
+		"home": _route_entry(router_service, "home", "res://src/routes/home_route/home_route.tscn")
+	})
+	router.transition_callable = Callable(self, "_capture_transition")
+	_transition_called = false
+	var middleware := TestRouteMiddleware.new()
+	middleware.allow_routes = false
+	router.add_middleware(middleware)
+	var blocked_params: Dictionary[String, Variant] = {"blocked": true}
+	router.go_to("home", blocked_params)
+	if _transition_called:
+		failures.append("Expected object middleware to block transition")
+	if router.get_current_route() != "":
+		failures.append("Expected blocked object middleware navigation to keep current route empty")
+	router.free()
 
 func _test_history_and_go_back(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
