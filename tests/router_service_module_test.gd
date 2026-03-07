@@ -24,7 +24,7 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	_test_route_not_found_signal(failures)
 	_test_transition_callable_and_params(failures)
-	_test_middleware_blocks_navigation(failures)
+	_test_callable_middleware_is_ignored(failures)
 	_test_object_middleware_blocks_navigation(failures)
 	_test_history_and_go_back(failures)
 	_test_default_transition_callable_is_set(failures)
@@ -93,7 +93,7 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 		failures.append("get_param should return default for missing key")
 	router.free()
 
-func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
+func _test_callable_middleware_is_ignored(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
 		failures.append("Failed to load res://src/router_service.gd")
@@ -109,10 +109,10 @@ func _test_middleware_blocks_navigation(failures: Array[String]) -> void:
 	var blocked_params: Dictionary[String, Variant] = {"blocked": true}
 	router.go_to("home", blocked_params)
 
-	if _transition_called:
-		failures.append("Expected middleware to block transition")
-	if router.get_current_route() != "":
-		failures.append("Expected blocked navigation to keep current route empty")
+	if not _transition_called:
+		failures.append("Expected callable middleware to be ignored and transition to proceed")
+	if router.get_current_route() != "home":
+		failures.append("Expected callable middleware to be ignored and route to change")
 	router.free()
 	_allow_routes = true
 

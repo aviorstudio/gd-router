@@ -12,7 +12,7 @@ const SETTING_AUTO_DISCOVER := SETTINGS_PREFIX + "auto_discover"
 const SETTING_ROUTES_DIR := SETTINGS_PREFIX + "routes_dir"
 const SETTING_ROUTE_DIR_SUFFIX := SETTINGS_PREFIX + "route_dir_suffix"
 
-const DEFAULT_AUTO_DISCOVER := true
+const DEFAULT_AUTO_DISCOVER := false
 const DEFAULT_ROUTES_DIR := "res://src/routes"
 const DEFAULT_ROUTE_DIR_SUFFIX := "_route"
 
@@ -44,6 +44,9 @@ var config: RouterConfig = RouterConfig.new()
 const MAX_HISTORY_SIZE := 20
 
 func _enter_tree() -> void:
+	if not transition_callable.is_valid():
+		transition_callable = Callable(self, "_default_transition")
+
 	if not _routes.is_empty():
 		return
 
@@ -55,13 +58,9 @@ func _enter_tree() -> void:
 	var route_dir_suffix: String = str(ProjectSettings.get_setting(SETTING_ROUTE_DIR_SUFFIX, DEFAULT_ROUTE_DIR_SUFFIX))
 	var discovered_routes: Dictionary[String, RouteEntry] = discover_routes(routes_dir, route_dir_suffix)
 	if discovered_routes.is_empty():
-		if not transition_callable.is_valid():
-			transition_callable = Callable(self, "_default_transition")
 		return
 
 	set_routes(discovered_routes)
-	if not transition_callable.is_valid():
-		transition_callable = Callable(self, "_default_transition")
 
 ## Replaces router configuration values.
 func set_config(new_config: RouterConfig) -> void:
@@ -89,13 +88,14 @@ func add_route(entry: RouteEntry) -> void:
 		return
 	_routes[entry.name] = entry
 
-## Adds a middleware adapter with `run(route_name, params, next)` or a callable with the same signature.
+## Adds a middleware adapter with `run(route_name, params, next)`.
 func add_middleware(middleware: Variant) -> void:
 	if middleware == null:
 		return
-	if middleware is Callable and not (middleware as Callable).is_valid():
+	if middleware is Callable:
+		push_warning("%s: Callable middleware is not supported. Use an object with run(route_name, params, next)." % name)
 		return
-	if not (middleware is Callable) and not ("run" in middleware):
+	if not ("run" in middleware):
 		return
 	_middleware_chain.append(middleware)
 
@@ -224,17 +224,12 @@ func _run_middleware(route_name: String, params: Dictionary[String, Variant]) ->
 		return true
 
 	for middleware: Variant in _middleware_chain:
-		if middleware is Callable and not (middleware as Callable).is_valid():
-			continue
-		if not (middleware is Callable) and not ("run" in middleware):
+		if not ("run" in middleware):
 			continue
 		var middleware_state: Dictionary[String, bool] = {"proceed": false}
 		var next_callable: Callable = func() -> void:
 			middleware_state["proceed"] = true
-		if middleware is Callable:
-			(middleware as Callable).call(route_name, params, next_callable)
-		else:
-			middleware.run(route_name, params, next_callable)
+		middleware.run(route_name, params, next_callable)
 		if not bool(middleware_state.get("proceed", false)):
 			return false
 
