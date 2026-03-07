@@ -41,7 +41,7 @@ GdRouter.go_to("home")
 - `gd_router/routes_dir`
 - `gd_router/route_dir_suffix`
 
-`gd_router/auto_discover` defaults to `false`. Explicit route registration is recommended.
+`gd_router/auto_discover` defaults to `true`. Explicit route registration is still recommended for larger projects.
 
 ## Testing
 
