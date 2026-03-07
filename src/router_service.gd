@@ -12,7 +12,7 @@ const SETTING_AUTO_DISCOVER := SETTINGS_PREFIX + "auto_discover"
 const SETTING_ROUTES_DIR := SETTINGS_PREFIX + "routes_dir"
 const SETTING_ROUTE_DIR_SUFFIX := SETTINGS_PREFIX + "route_dir_suffix"
 
-const DEFAULT_AUTO_DISCOVER := false
+const DEFAULT_AUTO_DISCOVER := true
 const DEFAULT_ROUTES_DIR := "res://src/routes"
 const DEFAULT_ROUTE_DIR_SUFFIX := "_route"
 
