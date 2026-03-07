@@ -31,10 +31,14 @@ class RouteEntry extends RefCounted:
 class RouterConfig extends RefCounted:
 	var transition_duration_s: float = RouteTransitionUtil.DEFAULT_FADE_DURATION
 
+class RouteMiddlewareAdapter extends RefCounted:
+	func run(_route_name: String, _params: Dictionary[String, Variant], next: Callable) -> void:
+		next.call()
+
 var _routes: Dictionary[String, RouteEntry] = {}
 var _current_params: Dictionary[String, Variant] = {}
 var transition_callable: Callable = Callable()
-var _middleware_chain: Array[Callable] = []
+var _middleware_chain: Array[Variant] = []
 var _history: Array[String] = []
 var config: RouterConfig = RouterConfig.new()
 const MAX_HISTORY_SIZE := 20
@@ -85,9 +89,13 @@ func add_route(entry: RouteEntry) -> void:
 		return
 	_routes[entry.name] = entry
 
-## Adds a middleware callable with signature `(route_name, params, next) -> void`.
-func add_middleware(middleware: Callable) -> void:
-	if not middleware.is_valid():
+## Adds a middleware adapter with `run(route_name, params, next)` or a callable with the same signature.
+func add_middleware(middleware: Variant) -> void:
+	if middleware == null:
+		return
+	if middleware is Callable and not (middleware as Callable).is_valid():
+		return
+	if not (middleware is Callable) and not ("run" in middleware):
 		return
 	_middleware_chain.append(middleware)
 
@@ -215,13 +223,18 @@ func _run_middleware(route_name: String, params: Dictionary[String, Variant]) ->
 	if _middleware_chain.is_empty():
 		return true
 
-	for middleware: Callable in _middleware_chain:
-		if not middleware.is_valid():
+	for middleware: Variant in _middleware_chain:
+		if middleware is Callable and not (middleware as Callable).is_valid():
+			continue
+		if not (middleware is Callable) and not ("run" in middleware):
 			continue
 		var middleware_state: Dictionary[String, bool] = {"proceed": false}
 		var next_callable: Callable = func() -> void:
 			middleware_state["proceed"] = true
-		middleware.call(route_name, params, next_callable)
+		if middleware is Callable:
+			(middleware as Callable).call(route_name, params, next_callable)
+		else:
+			middleware.run(route_name, params, next_callable)
 		if not bool(middleware_state.get("proceed", false)):
 			return false
 
