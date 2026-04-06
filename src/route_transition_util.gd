@@ -80,6 +80,10 @@ static func _start_crossfade(tree: SceneTree, next_scene: Node, overlay: Texture
 	tween.tween_property(overlay, "modulate:a", 0.0, duration)
 	if next_scene is CanvasItem:
 		tween.tween_property(next_scene, "modulate:a", 1.0, duration)
+	if next_scene is Control:
+		var slide_offset: float = 20.0
+		(next_scene as Control).position.y += slide_offset
+		tween.tween_property(next_scene, "position:y", (next_scene as Control).position.y - slide_offset, duration)
 	tween.finished.connect(_cleanup_transition.bind(tree, overlay), CONNECT_ONE_SHOT)
 
 ## Cleans up transition overlay and previous scene references.
