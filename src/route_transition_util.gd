@@ -7,19 +7,43 @@ const OVERLAY_NAME: String = "RouteTransitionOverlay"
 const OVERLAY_Z_INDEX: int = 5000
 
 ## Transitions to a new scene path with viewport crossfade.
+##
+## Loads the next scene asynchronously via ResourceLoader.load_threaded_request
+## so the main thread never stalls on disk/parse work. The viewport snapshot
+## overlay is captured immediately, so the fade visually starts the instant the
+## navigation is requested. Once the threaded load completes the new scene is
+## instantiated, added to the tree, and the crossfade tween runs to completion.
 static func transition_to(scene_path: String, fade_duration_s: float = DEFAULT_FADE_DURATION) -> void:
 	if scene_path.is_empty():
 		return
 	var tree: SceneTree = Engine.get_main_loop() as SceneTree
 	if tree == null:
 		return
+
 	var overlay: TextureRect = _create_overlay(tree)
 	if overlay == null:
 		return
-	var next_scene: Node = _instantiate_scene(scene_path)
+
+	var request_err: int = ResourceLoader.load_threaded_request(scene_path)
+	if request_err != OK:
+		push_error("RouteTransitionUtil: load_threaded_request failed for %s (err=%d)" % [scene_path, request_err])
+		overlay.queue_free()
+		return
+
+	var packed_scene: PackedScene = await _await_threaded_load(tree, scene_path)
+	if packed_scene == null:
+		overlay.queue_free()
+		return
+
+	var next_scene: Node = packed_scene.instantiate()
 	if next_scene == null:
 		overlay.queue_free()
 		return
+
+	if not is_instance_valid(overlay):
+		next_scene.queue_free()
+		return
+
 	var root: Window = tree.root
 	root.add_child(next_scene)
 	tree.current_scene = next_scene
@@ -27,6 +51,22 @@ static func transition_to(scene_path: String, fade_duration_s: float = DEFAULT_F
 	if next_scene is CanvasItem:
 		(next_scene as CanvasItem).modulate.a = 0.0
 	_start_crossfade(tree, next_scene, overlay, fade_duration_s)
+
+## Polls ResourceLoader threaded load each frame until completion.
+## Returns the loaded PackedScene, or null on failure.
+static func _await_threaded_load(tree: SceneTree, scene_path: String) -> PackedScene:
+	while true:
+		var status: int = ResourceLoader.load_threaded_get_status(scene_path)
+		match status:
+			ResourceLoader.THREAD_LOAD_LOADED:
+				var resource: Resource = ResourceLoader.load_threaded_get(scene_path)
+				return resource as PackedScene
+			ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+				push_error("RouteTransitionUtil: threaded load failed for %s (status=%d)" % [scene_path, status])
+				return null
+			_:
+				await tree.process_frame
+	return null
 
 ## Creates a fullscreen overlay from the current viewport snapshot.
 static func _create_overlay(tree: SceneTree) -> TextureRect:
@@ -58,13 +98,6 @@ static func _capture_viewport_texture(root: Window) -> ImageTexture:
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)
-
-## Instantiates a scene from a path, returning null on load failure.
-static func _instantiate_scene(scene_path: String) -> Node:
-	var packed_scene: PackedScene = load(scene_path)
-	if packed_scene == null:
-		return null
-	return packed_scene.instantiate()
 
 ## Runs parallel fade-out/fade-in tween between overlay and next scene.
 static func _start_crossfade(tree: SceneTree, next_scene: Node, overlay: TextureRect, fade_duration_s: float) -> void:
