@@ -1,63 +1,71 @@
 # gd-router
 
-Minimal scene navigation primitive for Godot 4 with optional transition effects.
+Navigate between scenes by route name in Godot 4.
 
-This addon intentionally avoids route-driven app orchestration. Keep scene setup and feature lifecycle in game code.
+Use this addon when you want a small `GdRouter` autoload for route registration, navigation history, params, middleware, and optional transitions.
 
 ## Installation
 
 ### Via gdpm
+
 `gdpm install @aviorstudio/gd-router`
 
 ### Manual
-Copy `addon/` into `addons/@aviorstudio_gd-router/` and enable the plugin.
+
+Copy `addon/` into `res://addons/@aviorstudio_gd-router/` and enable the plugin.
 
 ## Quick Start
+
+The plugin installs an autoload named `GdRouter`.
 
 ```gdscript
 const RouterService = preload("res://addons/@aviorstudio_gd-router/src/router_service.gd")
 
-GdRouter.set_routes({
-	"home": RouterService.RouteEntry.new("home", "res://src/routes/home_route/home_route.tscn"),
-})
-GdRouter.go_to("home")
+func _ready() -> void:
+	GdRouter.set_routes({
+		"home": RouterService.RouteEntry.new("home", "res://src/routes/home_route/home_route.tscn"),
+		"settings": RouterService.RouteEntry.new("settings", "res://src/routes/settings_route/settings_route.tscn"),
+	})
+
+	GdRouter.go_to("home")
 ```
 
-## API Reference
+## Navigation
 
-- `RouterService`: route registration, navigation, history, and params.
-- `RouteMiddlewareAdapter`: middleware object contract (`run(route_name, params, next)`).
-- `RouteTransitionUtil`: replaceable crossfade effect helper.
-- `autoload.gd`: `GdRouter` autoload entrypoint.
+```gdscript
+GdRouter.go_to("settings", {"tab": "audio"})
+GdRouter.replace("home")
+GdRouter.go_back()
+```
 
-Navigation helpers:
+## What You Get
 
-- `go_to(route_name, params)`: navigate and append to history.
-- `replace(route_name, params)`: navigate without adding a new history entry.
-- `go_back()`: navigate to the previous route when history is available.
+- `RouterService`: route table, current route, params, and history.
+- `GdRouter`: default autoload entrypoint.
+- `RouteEntry`: route name and scene path container.
+- `RouteMiddlewareAdapter`: middleware contract with `run(route_name, params, next)`.
+- `RouteTransitionUtil`: replaceable crossfade helper.
 
-## Scope Boundary
+## Auto Discovery
 
-- In scope: route table registration and scene navigation calls.
-- Out of scope: feature/module bootstrapping, state orchestration, and route-specific business logic.
+The router can auto-discover scenes that follow this convention:
 
-## Configuration
+```text
+res://src/routes/*_route/*_route.tscn
+```
+
+Project settings:
 
 - `gd_router/auto_discover`
 - `gd_router/routes_dir`
 - `gd_router/route_dir_suffix`
 
-`gd_router/auto_discover` defaults to `true` for small projects that follow the `res://src/routes/*_route/*_route.tscn` convention. Explicit route registration is recommended for larger projects or projects with a different folder layout.
+Explicit route registration is recommended for larger projects or custom folder layouts.
 
-## Compatibility
+## Notes
 
-- Godot 4.x.
-- Native and web exports.
-- The default autoload is `GdRouter`.
-
-## API Stability
-
-The stable public API is `RouterService`, `GdRouter`, route entries, middleware objects with `run(route_name, params, next)`, and route params/history helpers. Game-specific guards and feature lifecycle should stay in game code.
+- Works in Godot 4.x native and web exports.
+- Game-specific guards, loading screens, and feature lifecycle should live in your game code.
 
 ## Testing
 
