@@ -6,6 +6,7 @@ const RouteTransitionUtil = preload("route_transition_util.gd")
 
 signal route_changed(route_name: String, scene_path: String)
 signal route_not_found(route_name: String)
+signal route_change_failed(route_name: String, scene_path: String, error_code: int)
 
 const SETTINGS_PREFIX := "gd_router/"
 const SETTING_AUTO_DISCOVER := SETTINGS_PREFIX + "auto_discover"
@@ -146,6 +147,13 @@ func discover_routes(routes_dir: String, route_dir_suffix: String = DEFAULT_ROUT
 
 ## Navigates to a route name with optional typed params.
 func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
+	_navigate(route_name, params, true)
+
+## Navigates to a route without appending the current entry to history.
+func replace(route_name: String, params: Dictionary[String, Variant] = {}) -> void:
+	_navigate(route_name, params, false)
+
+func _navigate(route_name: String, params: Dictionary[String, Variant], push_history: bool) -> void:
 	var copied_params: Dictionary[String, Variant] = params.duplicate(true)
 	var route_entry: RouteEntry = _routes.get(route_name, null)
 	if route_entry == null:
@@ -165,10 +173,10 @@ func go_to(route_name: String, params: Dictionary[String, Variant] = {}) -> void
 	var resolved_transition: Callable = _get_transition_callable()
 	if resolved_transition.is_valid():
 		resolved_transition.call(scene_path)
-		_on_route_changed(route_name, scene_path)
+		_on_route_changed(route_name, scene_path, push_history)
 		return
 
-	_safe_change_scene(scene_path, route_name)
+	_safe_change_scene(scene_path, route_name, push_history)
 
 ## Returns a deep-copied dictionary of current route params.
 func get_params() -> Dictionary[String, Variant]:
@@ -190,26 +198,31 @@ func go_back() -> void:
 func get_current_route() -> String:
 	return _history.back() if not _history.is_empty() else ""
 
-func _safe_change_scene(scene_path: String, route_name: String) -> void:
+func _safe_change_scene(scene_path: String, route_name: String, push_history: bool) -> void:
 	var result: int = get_tree().change_scene_to_file(scene_path)
 	if result != OK:
 		push_error("%s: Failed to change scene to %s - Error code: %d" % [name, scene_path, result])
 		_on_route_change_failed(route_name, scene_path, result)
 		return
 
-	_on_route_changed(route_name, scene_path)
+	_on_route_changed(route_name, scene_path, push_history)
 
 func _on_route_not_found(route_name: String) -> void:
 	route_not_found.emit(route_name)
 
-func _on_route_changed(route_name: String, scene_path: String) -> void:
-	_history.append(route_name)
-	while _history.size() > MAX_HISTORY_SIZE:
-		_history.pop_front()
+func _on_route_changed(route_name: String, scene_path: String, push_history: bool) -> void:
+	if push_history:
+		_history.append(route_name)
+		while _history.size() > MAX_HISTORY_SIZE:
+			_history.pop_front()
+	elif _history.is_empty():
+		_history.append(route_name)
+	else:
+		_history[_history.size() - 1] = route_name
 	route_changed.emit(route_name, scene_path)
 
-func _on_route_change_failed(_route_name: String, _scene_path: String, _error_code: int) -> void:
-	pass
+func _on_route_change_failed(route_name: String, scene_path: String, error_code: int) -> void:
+	route_change_failed.emit(route_name, scene_path, error_code)
 
 func _get_transition_callable() -> Callable:
 	if transition_callable.is_valid():
