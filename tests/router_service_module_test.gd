@@ -15,7 +15,7 @@ class TestRouteMiddleware extends RefCounted:
 			next.call()
 
 func _load_router_service() -> Variant:
-	return load("res://src/router_service.gd")
+	return load("res://addon/src/router_service.gd")
 
 func _route_entry(router_service: Variant, route_name: String, scene_path: String) -> Variant:
 	return router_service.RouteEntry.new(route_name, scene_path)
@@ -41,7 +41,7 @@ func _initialize() -> void:
 func _test_route_not_found_signal(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	_missing_route_name = ""
 	var router = router_service.new()
@@ -55,7 +55,7 @@ func _test_route_not_found_signal(failures: Array[String]) -> void:
 func _test_transition_callable_and_params(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	_transition_called = false
 	_last_transition_path = ""
@@ -96,7 +96,7 @@ func _test_transition_callable_and_params(failures: Array[String]) -> void:
 func _test_callable_middleware_is_ignored(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	var router = router_service.new()
 	router.set_routes({
@@ -119,7 +119,7 @@ func _test_callable_middleware_is_ignored(failures: Array[String]) -> void:
 func _test_object_middleware_blocks_navigation(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	var router = router_service.new()
 	router.set_routes({
@@ -141,7 +141,7 @@ func _test_object_middleware_blocks_navigation(failures: Array[String]) -> void:
 func _test_history_and_go_back(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	_transition_call_count = 0
 	var router = router_service.new()
@@ -166,7 +166,7 @@ func _test_history_and_go_back(failures: Array[String]) -> void:
 func _test_default_transition_callable_is_set(failures: Array[String]) -> void:
 	var router_service: Variant = _load_router_service()
 	if router_service == null:
-		failures.append("Failed to load res://src/router_service.gd")
+		failures.append("Failed to load res://addon/src/router_service.gd")
 		return
 	var router = router_service.new()
 	router._enter_tree()
