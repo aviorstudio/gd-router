@@ -10,7 +10,7 @@ This addon intentionally avoids route-driven app orchestration. Keep scene setup
 `gdpm install @aviorstudio/gd-router`
 
 ### Manual
-Copy this directory into `addons/@aviorstudio_gd-router/` and enable the plugin.
+Copy `addon/` into `addons/@aviorstudio_gd-router/` and enable the plugin.
 
 ## Quick Start
 
