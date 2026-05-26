@@ -6,9 +6,9 @@ Use this addon when you want a small `GdRouter` autoload for route registration,
 
 ## Installation
 
-### Via gdpm
+### Via gdam
 
-`gdpm install @aviorstudio/gd-router`
+`gdam install @aviorstudio/gd-router`
 
 ### Manual
 
