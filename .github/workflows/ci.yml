@@ -28,6 +28,9 @@ jobs:
           test -f addon/src/resources/route_definition.gd
           test -f addon/src/resources/route_transition.gd
           test -f addon/src/discovery/route_discovery.gd
+          test -f addon/src/editor/route_map_generator.gd
+          test -f addon/presets/instant_route_transition.tres
+          test -f addon/presets/crossfade_route_transition.tres
 
       - name: Install Godot
         if: ${{ hashFiles('tests/test.sh') != '' }}

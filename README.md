@@ -48,6 +48,14 @@ func _on_play_button_pressed() -> void:
 
 Or add a `RouteLink` button and set its `route_name` in the Inspector.
 
+For a production route map, use Godot's top menu:
+
+```text
+Project > Tools > GD Router: Create Route Map From Screens
+```
+
+This scans `res://src/screens/*_screen/*_screen.tscn` and creates `res://src/static/config/main_route_map.tres`.
+
 ## Recommended Project Shape
 
 ```text
@@ -106,6 +114,17 @@ For production projects, prefer a committed route map over auto-discovery. Auto-
 
 If `RouteHost.initial_route` is empty, the host uses `RouteMap.initial_route`.
 
+### Route Map Generation
+
+The editor tool menu action creates a route map from the standard screen layout:
+
+```text
+res://src/screens/home_screen/home_screen.tscn -> home
+res://src/screens/game_screen/game_screen.tscn -> game
+```
+
+When updating an existing route map, the generator preserves route titles, metadata, and guards for matching route names while refreshing discovered scene paths. This keeps route maps editor-authored without making designers manually re-enter obvious paths.
+
 ## Transitions
 
 Assign a `RouteTransition` resource to `RouteHost.transition`.
@@ -116,6 +135,13 @@ Built-in transitions:
 - `CrossfadeRouteTransition`: fades between screens with a small slide-in.
 
 Custom transitions should extend `RouteTransition` and emit `finished` when the host may free the previous screen.
+
+Preset resources are included at:
+
+```text
+res://addons/@aviorstudio_gd-router/presets/instant_route_transition.tres
+res://addons/@aviorstudio_gd-router/presets/crossfade_route_transition.tres
+```
 
 ## Guards
 
@@ -129,6 +155,27 @@ func can_enter(context: RouteContext) -> bool:
 ```
 
 Guards run before the host loads the target scene. A blocked guard leaves the current route and history unchanged.
+
+## Route Links
+
+`RouteLink` is a `Button` subclass for editor-authored navigation. Set its action in the Inspector:
+
+- `GO_TO`: calls `GdRouter.go_to(route_name, params)`.
+- `REPLACE`: calls `GdRouter.replace(route_name, params)`.
+- `BACK`: calls `GdRouter.go_back()`.
+
+Use `RouteLink` for simple menu buttons and keep direct `GdRouter` calls for screen-specific behavior that needs custom code.
+
+## Editor Warnings
+
+`RouteHost` surfaces configuration warnings in the editor when:
+
+- no route map is assigned and auto-discovery is disabled
+- `routes_dir` does not exist
+- no routes are discovered
+- the initial route is missing
+- route map entries point at missing scenes
+- the transition resource does not implement `RouteTransition`
 
 ## App Shell Model
 
@@ -177,9 +224,11 @@ Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports
 - `addon/`: Godot plugin source packaged for GDAM and manual installation.
 - `addon/plugin.cfg`: plugin name, version, description, and entry script.
 - `addon/src/core/`: navigation state and request objects.
+- `addon/src/editor/`: editor automation helpers.
 - `addon/src/nodes/`: editor-visible routing nodes.
 - `addon/src/resources/`: editor-visible route, guard, and transition resources.
 - `addon/src/discovery/`: screen route discovery.
+- `addon/presets/`: built-in transition preset resources.
 - `tests/`: Godot test project/scripts for addon behavior.
 - `.github/workflows/ci.yml`: validates package shape and runs tests.
 - `.github/workflows/release.yml`: creates GitHub release ZIPs and publishes to GDAM.

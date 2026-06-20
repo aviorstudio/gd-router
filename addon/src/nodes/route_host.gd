@@ -3,6 +3,7 @@ class_name RouteHost
 extends Control
 
 const InstantRouteTransitionScript = preload("../resources/instant_route_transition.gd")
+const RouteDiscoveryScript = preload("../discovery/route_discovery.gd")
 
 signal route_mounted(request)
 signal route_mount_failed(request, error_message: String)
@@ -20,6 +21,7 @@ var current_screen: Node = null
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
+		update_configuration_warnings()
 		return
 	_resolve_router()
 	if router == null:
@@ -98,3 +100,54 @@ func _apply_screen_layout(screen: Node) -> void:
 		control.offset_top = 0.0
 		control.offset_right = 0.0
 		control.offset_bottom = 0.0
+
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := PackedStringArray()
+	if route_map == null and not auto_discover:
+		warnings.append("Assign a RouteMap or enable auto_discover so RouteHost has routes to mount.")
+	if transition != null and (not transition.has_method("start_transition") or not transition.has_signal("finished")):
+		warnings.append("transition must extend RouteTransition and emit finished.")
+	if route_map != null:
+		_validate_route_map_warnings(warnings)
+	elif auto_discover:
+		_validate_auto_discover_warnings(warnings)
+	return warnings
+
+func _validate_route_map_warnings(warnings: PackedStringArray) -> void:
+	if not ("routes" in route_map):
+		warnings.append("route_map must be a RouteMap resource.")
+		return
+	var route_names: Array[String] = []
+	for route in route_map.routes:
+		if route == null:
+			warnings.append("route_map contains a null route entry.")
+			continue
+		if not ("route_name" in route) or str(route.route_name).strip_edges().is_empty():
+			warnings.append("route_map contains a route with no route_name.")
+			continue
+		route_names.append(str(route.route_name))
+		if not ("scene_path" in route) or str(route.scene_path).strip_edges().is_empty():
+			warnings.append("Route '%s' has no scene_path." % route.route_name)
+		elif not ResourceLoader.exists(str(route.scene_path)):
+			warnings.append("Route '%s' scene_path does not exist: %s" % [route.route_name, route.scene_path])
+	var starting_route := _initial_route_name()
+	if not starting_route.is_empty() and not route_names.has(starting_route):
+		warnings.append("Initial route '%s' is not present in route_map." % starting_route)
+
+func _validate_auto_discover_warnings(warnings: PackedStringArray) -> void:
+	if routes_dir.strip_edges().is_empty():
+		warnings.append("routes_dir is empty; auto_discover cannot find screen routes.")
+		return
+	if DirAccess.open(routes_dir) == null:
+		warnings.append("routes_dir does not exist: %s" % routes_dir)
+		return
+	var discovered_routes: Array = RouteDiscoveryScript.discover(routes_dir, route_dir_suffix)
+	if discovered_routes.is_empty():
+		warnings.append("No routes discovered under %s using suffix '%s'." % [routes_dir, route_dir_suffix])
+		return
+	var route_names: Array[String] = []
+	for route in discovered_routes:
+		if route != null and "route_name" in route:
+			route_names.append(str(route.route_name))
+	if not initial_route.is_empty() and not route_names.has(initial_route):
+		warnings.append("Initial route '%s' was not discovered under %s." % [initial_route, routes_dir])
