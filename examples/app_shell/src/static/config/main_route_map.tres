@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RouteMap" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://addon/src/resources/route_map.gd" id="1_route_map"]
+[ext_resource type="Script" path="res://addon/src/resources/route_definition.gd" id="2_route_definition"]
+
+[sub_resource type="Resource" id="Resource_home"]
+script = ExtResource("2_route_definition")
+route_name = "home"
+scene_path = "res://examples/app_shell/src/screens/home_screen/home_screen.tscn"
+title = "Home"
+
+[sub_resource type="Resource" id="Resource_game"]
+script = ExtResource("2_route_definition")
+route_name = "game"
+scene_path = "res://examples/app_shell/src/screens/game_screen/game_screen.tscn"
+title = "Game"
+
+[resource]
+script = ExtResource("1_route_map")
+initial_route = "home"
+routes = Array[Resource]([SubResource("Resource_home"), SubResource("Resource_game")])

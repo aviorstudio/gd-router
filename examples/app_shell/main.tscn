@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://addon/src/nodes/route_host.gd" id="1_route_host"]
+[ext_resource type="Resource" path="res://examples/app_shell/src/static/config/main_route_map.tres" id="2_route_map"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RouteHost" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_route_host")
+route_map = ExtResource("2_route_map")
+initial_route = ""
+auto_discover = false

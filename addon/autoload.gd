@@ -1,2 +1,1 @@
-extends "src/router_service.gd"
-
+extends "src/core/router.gd"

@@ -16,7 +16,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate addon package
-        run: test -f addon/plugin.cfg
+        run: |
+          set -euo pipefail
+          test -f addon/plugin.cfg
+          test -f addon/autoload.gd
+          test -f addon/plugin.gd
+          test -f addon/src/core/router.gd
+          test -f addon/src/nodes/route_host.gd
+          test -f addon/src/nodes/route_link.gd
+          test -f addon/src/resources/route_map.gd
+          test -f addon/src/resources/route_definition.gd
+          test -f addon/src/resources/route_transition.gd
+          test -f addon/src/discovery/route_discovery.gd
 
       - name: Install Godot
         if: ${{ hashFiles('tests/test.sh') != '' }}
