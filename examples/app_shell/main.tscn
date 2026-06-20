@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://addon/src/nodes/route_host.gd" id="1_route_host"]
 [ext_resource type="Resource" path="res://examples/app_shell/src/static/config/main_route_map.tres" id="2_route_map"]
+[ext_resource type="Resource" path="res://addon/presets/crossfade_route_transition.tres" id="3_transition"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -22,3 +23,4 @@ script = ExtResource("1_route_host")
 route_map = ExtResource("2_route_map")
 initial_route = ""
 auto_discover = false
+transition = ExtResource("3_transition")
