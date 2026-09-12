@@ -9,6 +9,7 @@ src/core/route_context.gd
 src/core/route_context.gd.uid
 src/core/route_request.gd
 src/core/route_request.gd.uid
+src/core/route_result.gd
 src/core/router.gd
 src/core/router.gd.uid
 src/discovery/route_discovery.gd
