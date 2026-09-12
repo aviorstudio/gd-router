@@ -13,12 +13,12 @@ on:
           - major
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency: release-${{ github.repository }}
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
     # Bounded, so a step that hangs fails here rather than sitting until the
     # runner's own timeout hours later.
@@ -74,33 +74,57 @@ jobs:
       - name: Test
         uses: ./.github/actions/test
 
-      - name: Package addon
+      - name: Record exact package identity
+        run: ./scripts/package_addon.py --output dist/@aviorstudio_gd-router.zip --verify-only | tee dist/package-identity.txt
+
+      - name: Upload tested release bytes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tested-release-${{ github.sha }}
+          path: |
+            dist/@aviorstudio_gd-router.zip
+            dist/package-identity.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: tested-release-${{ github.sha }}
+          path: dist
+
+      - name: Re-read exact release identity
+        id: release
+        env:
+          BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
-          test -f addon/plugin.cfg
-          repo_owner="${GITHUB_REPOSITORY%%/*}"
-          addon_dir="@${repo_owner}_${GITHUB_REPOSITORY#*/}"
-          package_root="dist/${addon_dir}"
-          mkdir -p "$package_root"
-          cp addon/plugin.cfg addon/plugin.gd "$package_root/"
-          cp addon/*.uid "$package_root/" 2>/dev/null || true
-          if [ -f addon/autoload.gd ]; then cp addon/autoload.gd "$package_root/"; fi
-          if [ -d addon/src ]; then cp -R addon/src "$package_root/"; fi
-          if [ -d addon/presets ]; then cp -R addon/presets "$package_root/"; fi
-          (cd "$package_root" && zip -r "../${addon_dir}.zip" .)
+          ./scripts/package_addon.py --output dist/@aviorstudio_gd-router.zip --verify-only
+          version="$(sed -n -E 's/^version="([^"]+)"/\1/p' addon/plugin.cfg)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
-        run: gh release create "$TAG" dist/*.zip --target "$GITHUB_SHA" --title "$TAG" --notes "Release $TAG"
+        run: gh release create "$TAG" dist/@aviorstudio_gd-router.zip --target "$GITHUB_SHA" --title "$TAG" --notes-file dist/package-identity.txt
 
       - name: Install GDAM
-        uses: aviorstudio/gdam-actions/install@v0.0.2
+        uses: aviorstudio/gdam-actions/install@d735444eb470194585def44521d5d91df2260e63 # v0.0.2
+        with:
+          version: v0.0.8
 
       - name: Publish to GDAM
-        uses: aviorstudio/gdam-actions/publish@v0.0.2
+        uses: aviorstudio/gdam-actions/publish@d735444eb470194585def44521d5d91df2260e63 # v0.0.2
         with:
-          version: ${{ steps.release.outputs.version }}
           tag: ${{ steps.release.outputs.tag }}
+          asset: '@aviorstudio_gd-router.zip'
           secret-key: ${{ secrets.GDAM_SECRET_KEY }}
