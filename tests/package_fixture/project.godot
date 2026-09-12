@@ -5,6 +5,7 @@ config_version=5
 
 config/name="gd-router packaged lifecycle"
 config/features=PackedStringArray("4.7")
+run/main_scene="res://web_smoke.tscn"
 
 [editor_plugins]
 

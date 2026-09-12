@@ -22,6 +22,18 @@ runs:
         ln -s "$install_dir/Godot_v4.7.2-stable_linux.x86_64" "$install_dir/godot"
         echo "$install_dir" >> "$GITHUB_PATH"
 
+        templates="$RUNNER_TEMP/Godot_v4.7.2-stable_export_templates.tpz"
+        curl --fail --location --retry 3 --max-time 600 \
+          https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
+          --output "$templates"
+        printf '%s  %s\n' \
+          'ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079' \
+          "$templates" | sha512sum --check
+        template_dir="$HOME/.local/share/godot/export_templates/4.7.2.stable"
+        mkdir -p "$template_dir"
+        unzip -q "$templates" -d "$RUNNER_TEMP/godot-templates"
+        cp -R "$RUNNER_TEMP/godot-templates/templates/." "$template_dir/"
+
     - name: Verify Godot installation
       shell: bash
       run: |
@@ -31,3 +43,4 @@ runs:
           4.7.2.stable.*) ;;
           *) echo "Expected Godot 4.7.2 stable, got: $version" >&2; exit 1 ;;
         esac
+        test -f "$HOME/.local/share/godot/export_templates/4.7.2.stable/web_release.zip"
