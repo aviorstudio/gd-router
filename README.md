@@ -70,10 +70,17 @@ res://src/static/config/main_route_map.tres
 ## Navigation
 
 ```gdscript
-GdRouter.go_to("settings", {"tab": "audio"})
+var navigation = GdRouter.go_to("settings", {"tab": "audio"})
+if navigation.is_pending():
+	await navigation.completed
+if navigation.is_success():
+	print("settings mounted")
+
 GdRouter.replace("home")
 GdRouter.go_back()
 ```
+
+Navigation is transactional and latest-wins. `go_to`, `replace`, and `go_back` return a `RouteResult` whose `status` is `PENDING`, `SUCCEEDED`, `FAILED`, or `SUPERSEDED`. Route, params, and history commit only after the matching generation mounts successfully. A newer valid navigation supersedes an older pending request; stale resource or transition completions cannot mount or commit. Immediate failures (unknown route, blocked guard, or no back history) are already settled when returned, so inspect `status` before awaiting `completed`.
 
 ## What You Get
 
