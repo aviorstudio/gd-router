@@ -5,4 +5,4 @@ config_version=5
 [application]
 
 config/name="gd-router"
-config/features=PackedStringArray("4.4")
+config/features=PackedStringArray("4.7")

@@ -15,8 +15,6 @@ const RouteMapGeneratorScript = preload("src/editor/route_map_generator.gd")
 
 const TOOL_MENU_CREATE_ROUTE_MAP := "GD Router: Create Route Map From Screens"
 
-var _added_autoload: bool = false
-
 func _enter_tree() -> void:
 	add_custom_type("RouteHost", "Control", RouteHostScript, null)
 	add_custom_type("RouteLink", "Button", RouteLinkScript, null)
@@ -27,15 +25,6 @@ func _enter_tree() -> void:
 	add_custom_type("CrossfadeRouteTransition", "Resource", CrossfadeRouteTransitionScript, null)
 	add_custom_type("RouteGuard", "Resource", RouteGuardScript, null)
 	add_tool_menu_item(TOOL_MENU_CREATE_ROUTE_MAP, Callable(self, "_create_route_map_from_screens"))
-
-	var key: String = "autoload/" + AUTOLOAD_NAME
-	if ProjectSettings.has_setting(key):
-		_added_autoload = false
-		return
-
-	var base_dir: String = str(get_script().resource_path).get_base_dir()
-	add_autoload_singleton(AUTOLOAD_NAME, base_dir.path_join(AUTOLOAD_SCRIPT))
-	_added_autoload = true
 
 func _exit_tree() -> void:
 	remove_tool_menu_item(TOOL_MENU_CREATE_ROUTE_MAP)
@@ -48,8 +37,31 @@ func _exit_tree() -> void:
 	remove_custom_type("RouteLink")
 	remove_custom_type("RouteHost")
 
-	if _added_autoload:
+
+func _enable_plugin() -> void:
+	var key: String = "autoload/" + AUTOLOAD_NAME
+	if ProjectSettings.has_setting(key):
+		return
+	add_autoload_singleton(AUTOLOAD_NAME, _autoload_path())
+
+func _disable_plugin() -> void:
+	if _autoload_setting_matches_plugin():
 		remove_autoload_singleton(AUTOLOAD_NAME)
+
+func _autoload_path() -> String:
+	var base_dir: String = str(get_script().resource_path).get_base_dir()
+	return base_dir.path_join(AUTOLOAD_SCRIPT)
+
+func _autoload_setting_matches_plugin() -> bool:
+	var key: String = "autoload/" + AUTOLOAD_NAME
+	if not ProjectSettings.has_setting(key):
+		return false
+	var configured_path := str(ProjectSettings.get_setting(key)).trim_prefix("*")
+	if configured_path.begins_with("uid://"):
+		var uid := ResourceUID.text_to_id(configured_path)
+		if ResourceUID.has_id(uid):
+			configured_path = ResourceUID.get_id_path(uid)
+	return configured_path == _autoload_path()
 
 func _create_route_map_from_screens() -> void:
 	var error := RouteMapGeneratorScript.build_and_save_default()

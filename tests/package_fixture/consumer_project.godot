@@ -1,0 +1,15 @@
+; Consumer-owned autoload lifecycle fixture.
+config_version=5
+
+[application]
+
+config/name="gd-router consumer ownership"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+GdRouter="*res://consumer_router.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray()
