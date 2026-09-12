@@ -235,7 +235,7 @@ Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports
 
 ## Versioning And Releases
 
-The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`; the workflow verifies `plugin.cfg`, builds `@aviorstudio_gd-router.zip`, and publishes `@aviorstudio/gd-router` to GDAM.
+The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`. The workflow reruns the complete common gate, uploads the already-tested `@aviorstudio_gd-router.zip` without rebuilding it, records its SHA-256 and installed-tree digest, creates the GitHub Release, and publishes those bytes to GDAM.
 
 ## Testing
 
@@ -245,7 +245,9 @@ Run locally with:
 ./tests/test.sh
 ```
 
-CI runs the same test script when available.
+CI and release both require Godot 4.7.2, run negative/restored runner controls, execute every `*_test.gd` with an assertion-reach sentinel and runtime-error/timeout checks, validate the closed release manifest, and test the exact ZIP through plugin enable, editor restart, smoke, disable, restart, and consumer-owned autoload preservation.
+
+**Correction (fieldsofrevik#152):** the earlier text said CI ran `tests/test.sh` “when available.” That conditional description overstated the gate: a missing suite could be skipped, runtime errors followed by exit zero were not rejected, releases rebuilt untested bytes, and editor/package lifecycle was not exercised. The suite and exact-package lifecycle are now mandatory in both CI and release.
 
 ## License
 

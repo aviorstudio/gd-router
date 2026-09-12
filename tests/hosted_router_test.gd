@@ -48,7 +48,7 @@ func _initialize() -> void:
 	await _test_custom_transition_resource_is_called(failures)
 
 	if failures.is_empty():
-		print("PASS gd-router hosted_router_test")
+		print("PASS gd-router hosted_router_test reachable=1")
 		quit(0)
 		return
 
