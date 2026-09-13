@@ -1,55 +1,46 @@
-name: 'Setup Godot'
-description: 'Install Godot binary with caching and optionally install export templates'
-inputs:
-  godot-version:
-    description: 'Godot version to install (e.g., 4.4.1)'
-    required: true
-  install-templates:
-    description: 'Whether to install export templates'
-    required: false
-    default: 'false'
+name: Setup checksummed Godot
+description: Install the supported Godot 4.7.2 Linux editor from checksum-verified bytes
 
 runs:
   using: 'composite'
   steps:
-    - name: Cache Godot binary
-      id: cache-godot
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: /usr/local/bin/godot
-        key: godot-${{ inputs.godot-version }}-${{ runner.os }}
-
-    - name: Install Godot
-      if: steps.cache-godot.outputs.cache-hit != 'true'
+    - name: Download, verify, and install Godot 4.7.2
       shell: bash
       run: |
-        wget -q https://github.com/godotengine/godot/releases/download/${{ inputs.godot-version }}-stable/Godot_v${{ inputs.godot-version }}-stable_linux.x86_64.zip
-        unzip -q Godot_v${{ inputs.godot-version }}-stable_linux.x86_64.zip
-        chmod +x Godot_v${{ inputs.godot-version }}-stable_linux.x86_64
-        sudo mv Godot_v${{ inputs.godot-version }}-stable_linux.x86_64 /usr/local/bin/godot
+        set -euo pipefail
+        archive="$RUNNER_TEMP/Godot_v4.7.2-stable_linux.x86_64.zip"
+        install_dir="$RUNNER_TEMP/godot-4.7.2"
+        curl --fail --location --retry 3 --max-time 180 \
+          https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
+          --output "$archive"
+        printf '%s  %s\n' \
+          '9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65' \
+          "$archive" | sha512sum --check
+        mkdir -p "$install_dir"
+        unzip -q "$archive" -d "$install_dir"
+        chmod +x "$install_dir/Godot_v4.7.2-stable_linux.x86_64"
+        ln -s "$install_dir/Godot_v4.7.2-stable_linux.x86_64" "$install_dir/godot"
+        echo "$install_dir" >> "$GITHUB_PATH"
+
+        templates="$RUNNER_TEMP/Godot_v4.7.2-stable_export_templates.tpz"
+        curl --fail --location --retry 3 --max-time 600 \
+          https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
+          --output "$templates"
+        printf '%s  %s\n' \
+          'ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079' \
+          "$templates" | sha512sum --check
+        template_dir="$HOME/.local/share/godot/export_templates/4.7.2.stable"
+        mkdir -p "$template_dir"
+        unzip -q "$templates" -d "$RUNNER_TEMP/godot-templates"
+        cp -R "$RUNNER_TEMP/godot-templates/templates/." "$template_dir/"
 
     - name: Verify Godot installation
       shell: bash
-      run: godot --version
-
-    - name: Cache Godot export templates
-      if: inputs.install-templates == 'true'
-      id: cache-godot-templates
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable
-        key: godot-templates-${{ inputs.godot-version }}-${{ runner.os }}
-
-    - name: Install Godot export templates
-      if: inputs.install-templates == 'true' && steps.cache-godot-templates.outputs.cache-hit != 'true'
-      shell: bash
       run: |
-        mkdir -p ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable
-        wget -q https://github.com/godotengine/godot/releases/download/${{ inputs.godot-version }}-stable/Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
-        unzip -q Godot_v${{ inputs.godot-version }}-stable_export_templates.tpz
-        mv templates/* ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable/
-
-    - name: Verify Godot templates
-      if: inputs.install-templates == 'true'
-      shell: bash
-      run: ls -la ~/.local/share/godot/export_templates/${{ inputs.godot-version }}.stable/
+        set -euo pipefail
+        version="$(godot --version)"
+        case "$version" in
+          4.7.2.stable.*) ;;
+          *) echo "Expected Godot 4.7.2 stable, got: $version" >&2; exit 1 ;;
+        esac
+        test -f "$HOME/.local/share/godot/export_templates/4.7.2.stable/web_release.zip"

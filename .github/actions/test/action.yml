@@ -19,33 +19,14 @@ description: >
 runs:
   using: composite
   steps:
-    # The addon's own file manifest. Listed rather than globbed: a file dropped
-    # in a refactor is exactly what this catches, and a glob would happily match
-    # whatever was left.
-    - name: Validate addon package
+    - name: Build and verify exact release package
       shell: bash
-      run: |
-        set -euo pipefail
-        test -f addon/plugin.cfg
-        test -f addon/autoload.gd
-        test -f addon/plugin.gd
-        test -f addon/src/core/router.gd
-        test -f addon/src/nodes/route_host.gd
-        test -f addon/src/nodes/route_link.gd
-        test -f addon/src/resources/route_map.gd
-        test -f addon/src/resources/route_definition.gd
-        test -f addon/src/resources/route_transition.gd
-        test -f addon/src/discovery/route_discovery.gd
-        test -f addon/src/editor/route_map_generator.gd
-        test -f addon/presets/instant_route_transition.tres
-        test -f addon/presets/crossfade_route_transition.tres
+      run: ./scripts/package_addon.py
 
     # Godot comes from a LOCAL action, copied from the one castledrop and prizm
     # carry. The version used to be a download URL written into ci.yml -- the
     # engine this addon is tested against lived in workflow YAML.
     - uses: ./.github/actions/setup-godot
-      with:
-        godot-version: '4.4.1'
 
     # No `if: hashFiles(...)` guard. This step used to skip itself when
     # tests/test.sh was absent, which is indistinguishable from the script being
@@ -54,3 +35,7 @@ runs:
     - name: Godot tests
       shell: bash
       run: ./tests/test.sh
+
+    - name: Exact-package editor lifecycle
+      shell: bash
+      run: ./tests/package_lifecycle_test.sh dist/@aviorstudio_gd-router.zip

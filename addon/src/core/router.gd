@@ -2,6 +2,7 @@ extends Node
 
 const RouteContextScript = preload("route_context.gd")
 const RouteRequestScript = preload("route_request.gd")
+const RouteResultScript = preload("route_result.gd")
 const RouteDiscoveryScript = preload("../discovery/route_discovery.gd")
 
 signal navigation_requested(request)
@@ -18,6 +19,9 @@ var _hosts: Array[Node] = []
 var _history: Array[String] = []
 var _current_params: Dictionary = {}
 var _pending_request: RefCounted = null
+var _active_request: RefCounted = null
+var _active_host: Node = null
+var _generation: int = 0
 
 func register_host(host: Node) -> void:
 	if host == null or _hosts.has(host):
@@ -40,6 +44,8 @@ func unregister_host(host: Node) -> void:
 		host.disconnect("route_mounted", Callable(self, "_on_host_route_mounted"))
 	if host.has_signal("route_mount_failed") and host.is_connected("route_mount_failed", Callable(self, "_on_host_route_mount_failed")):
 		host.disconnect("route_mount_failed", Callable(self, "_on_host_route_mount_failed"))
+	if _active_host == host and _active_request != null:
+		_fail_active(_active_request, "Route host was unregistered before the mount completed.")
 
 func set_route_map(route_map: Resource) -> void:
 	_routes.clear()
@@ -77,18 +83,17 @@ func get_route_path(route_name: String) -> String:
 		return ""
 	return route.scene_path
 
-func go_to(route_name: String, params: Dictionary = {}) -> void:
-	_navigate(route_name, params, false)
+func go_to(route_name: String, params: Dictionary = {}) -> RefCounted:
+	return _navigate(route_name, params, RouteRequestScript.Operation.PUSH)
 
-func replace(route_name: String, params: Dictionary = {}) -> void:
-	_navigate(route_name, params, true)
+func replace(route_name: String, params: Dictionary = {}) -> RefCounted:
+	return _navigate(route_name, params, RouteRequestScript.Operation.REPLACE)
 
-func go_back(params: Dictionary = {}) -> void:
+func go_back(params: Dictionary = {}) -> RefCounted:
 	if _history.size() <= 1:
-		return
-	_history.pop_back()
-	var previous_route_name: String = _history.back()
-	_navigate(previous_route_name, params, true)
+		return _immediate_failure("", "There is no previous route.")
+	var previous_route_name: String = _history[_history.size() - 2]
+	return _navigate(previous_route_name, params, RouteRequestScript.Operation.BACK)
 
 func get_current_route() -> String:
 	return _history.back() if not _history.is_empty() else ""
@@ -99,21 +104,29 @@ func get_params() -> Dictionary:
 func get_param(key: String, default: Variant = null) -> Variant:
 	return _current_params.get(key, default)
 
-func _navigate(route_name: String, params: Dictionary, replace_current: bool) -> void:
+func get_history() -> Array[String]:
+	return _history.duplicate()
+
+func _navigate(route_name: String, params: Dictionary, operation: int) -> RefCounted:
 	var route: Resource = get_route(route_name)
 	if route == null:
 		push_warning("GdRouter: Unknown route %s" % route_name)
 		route_not_found.emit(route_name)
-		return
+		return _immediate_failure(route_name, "Unknown route: %s" % route_name)
 
 	var copied_params := params.duplicate(true)
 	var previous_route_name := get_current_route()
 	if not _can_enter(route, copied_params, previous_route_name):
-		return
+		return _immediate_failure(route_name, "Route guard blocked navigation.", route.scene_path)
 
-	var request: RefCounted = RouteRequestScript.new(route, copied_params, replace_current, previous_route_name)
+	_generation += 1
+	var result: RefCounted = RouteResultScript.new(route_name, route.scene_path, _generation)
+	var request: RefCounted = RouteRequestScript.new(route, copied_params, operation, previous_route_name, _generation, result)
+	_supersede_active()
+	_active_request = request
 	navigation_requested.emit(request)
 	_dispatch_request(request)
+	return result
 
 func _can_enter(route: Resource, params: Dictionary, previous_route_name: String) -> bool:
 	if route == null or not ("guard" in route) or route.guard == null:
@@ -127,10 +140,12 @@ func _dispatch_request(request: RefCounted) -> void:
 	var host := _primary_host()
 	if host == null:
 		_pending_request = request
+		_active_host = null
 		return
 	if not host.has_method("mount_route"):
 		_on_host_route_mount_failed(request, "Registered host cannot mount routes.")
 		return
+	_active_host = host
 	host.call("mount_route", request)
 
 func _primary_host() -> Node:
@@ -142,14 +157,68 @@ func _primary_host() -> Node:
 	return null
 
 func _on_host_route_mounted(request: RefCounted) -> void:
+	if not _is_active(request):
+		return
 	_current_params = request.params.duplicate(true)
-	if request.replace and not _history.is_empty():
-		_history[_history.size() - 1] = request.route_name
-	else:
-		_history.append(request.route_name)
+	match request.operation:
+		RouteRequestScript.Operation.REPLACE:
+			if _history.is_empty():
+				_history.append(request.route_name)
+			else:
+				_history[_history.size() - 1] = request.route_name
+		RouteRequestScript.Operation.BACK:
+			if _history.size() > 1:
+				_history.pop_back()
+		_:
+			_history.append(request.route_name)
 	while _history.size() > MAX_HISTORY_SIZE:
 		_history.pop_front()
+	_clear_active(request)
 	route_changed.emit(request.route_name, request.scene_path, get_params())
+	request.result.call("succeed")
 
 func _on_host_route_mount_failed(request: RefCounted, error_message: String) -> void:
+	if not _is_active(request):
+		return
+	_clear_active(request)
 	route_change_failed.emit(request.route_name, request.scene_path, error_message)
+	request.result.call("fail", error_message)
+
+func _is_active(request: RefCounted) -> bool:
+	return request != null and request == _active_request and request.generation == _generation and request.result.call("is_pending")
+
+func _supersede_active() -> void:
+	if _active_request == null:
+		return
+	var request: RefCounted = _active_request
+	if request.result.call("is_pending"):
+		request.result.call("supersede")
+	if _active_host != null and is_instance_valid(_active_host) and _active_host.has_method("cancel_mount"):
+		_active_host.call("cancel_mount", request)
+	_clear_active(request)
+
+func _fail_active(request: RefCounted, message: String) -> void:
+	if not _is_active(request):
+		return
+	_clear_active(request)
+	route_change_failed.emit(request.route_name, request.scene_path, message)
+	request.result.call("fail", message)
+
+func _clear_active(request: RefCounted) -> void:
+	if _active_request != request:
+		return
+	_active_request = null
+	_pending_request = null
+	_active_host = null
+
+func _immediate_failure(route_name: String, message: String, scene_path: String = "") -> RefCounted:
+	var result: RefCounted = RouteResultScript.new(route_name, scene_path, _generation)
+	result.call("fail", message)
+	return result
+
+func _exit_tree() -> void:
+	if _active_request != null and _active_request.result.call("is_pending"):
+		_active_request.result.call("fail", "Router was destroyed before navigation completed.")
+	_active_request = null
+	_pending_request = null
+	_active_host = null
