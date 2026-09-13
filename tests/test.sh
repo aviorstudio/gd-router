@@ -1,13 +1,19 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-GODOT="${GODOT_BIN:-godot}"
-FAILURES=0
-for test in "$SCRIPT_DIR"/*_test.gd; do
-    echo "Running $(basename "$test")..."
-    if ! "$GODOT" --headless --path "$ROOT_DIR" --script "$test" 2>&1; then
-        FAILURES=$((FAILURES + 1))
-    fi
+
+tests="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+"$tests/runner_contract_test.sh"
+
+shopt -s nullglob
+scripts=("$tests"/*_test.gd)
+if [ "${#scripts[@]}" -eq 0 ]; then
+  echo "No *_test.gd scripts were found" >&2
+  exit 1
+fi
+
+for script in "${scripts[@]}"; do
+  name="$(basename "$script" .gd)"
+  echo "Running ${name}.gd..."
+  "$tests/run_godot_test.sh" "$script" "PASS gd-router $name reachable=1"
 done
-exit $FAILURES

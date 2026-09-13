@@ -70,10 +70,17 @@ res://src/static/config/main_route_map.tres
 ## Navigation
 
 ```gdscript
-GdRouter.go_to("settings", {"tab": "audio"})
+var navigation = GdRouter.go_to("settings", {"tab": "audio"})
+if navigation.is_pending():
+	await navigation.completed
+if navigation.is_success():
+	print("settings mounted")
+
 GdRouter.replace("home")
 GdRouter.go_back()
 ```
+
+Navigation is transactional and latest-wins. `go_to`, `replace`, and `go_back` return a `RouteResult` whose `status` is `PENDING`, `SUCCEEDED`, `FAILED`, or `SUPERSEDED`. Route, params, and history commit only after the matching generation mounts successfully. A newer valid navigation supersedes an older pending request; stale resource or transition completions cannot mount or commit. Immediate failures (unknown route, blocked guard, or no back history) are already settled when returned, so inspect `status` before awaiting `completed`.
 
 ## What You Get
 
@@ -235,7 +242,7 @@ Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports
 
 ## Versioning And Releases
 
-The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`; the workflow verifies `plugin.cfg`, builds `@aviorstudio_gd-router.zip`, and publishes `@aviorstudio/gd-router` to GDAM.
+The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`. The workflow reruns the complete common gate, uploads the already-tested `@aviorstudio_gd-router.zip` without rebuilding it, records its SHA-256 and installed-tree digest, creates the GitHub Release, and publishes those bytes to GDAM.
 
 ## Testing
 
@@ -245,7 +252,9 @@ Run locally with:
 ./tests/test.sh
 ```
 
-CI runs the same test script when available.
+CI and release both require Godot 4.7.2, run negative/restored runner controls, execute every `*_test.gd` with an assertion-reach sentinel and runtime-error/timeout checks, validate the closed release manifest, and test the exact ZIP through plugin enable, editor restart, smoke, disable, restart, and consumer-owned autoload preservation.
+
+**Correction (fieldsofrevik#152):** the earlier text said CI ran `tests/test.sh` “when available.” That conditional description overstated the gate: a missing suite could be skipped, runtime errors followed by exit zero were not rejected, releases rebuilt untested bytes, and editor/package lifecycle was not exercised. The suite and exact-package lifecycle are now mandatory in both CI and release.
 
 ## License
 
