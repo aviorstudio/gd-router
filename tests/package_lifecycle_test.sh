@@ -17,6 +17,11 @@ trap cleanup EXIT
 
 python3 "$root/scripts/package_addon.py" --output "$archive" --verify-only
 
+check_install() {
+  python3 "$root/scripts/package_addon.py" --output "$archive" --verify-only \
+    --installed "$1/addons/@aviorstudio_gd-router"
+}
+
 run_editor() {
   local project="$1"
   local log="$2"
@@ -35,6 +40,7 @@ run_editor() {
     echo "packaged editor lifecycle command failed with status $status" >&2
     return 1
   fi
+  check_install "$project"
 }
 
 install_fixture() {
@@ -43,6 +49,7 @@ install_fixture() {
   unzip -q "$archive" -d "$project/addons/@aviorstudio_gd-router"
   cp "$fixtures/smoke.gd" "$fixtures/enable_plugin.gd" "$fixtures/disable_plugin.gd" \
     "$fixtures/web_smoke.gd" "$fixtures/web_smoke.tscn" "$fixtures/export_presets.cfg" "$project/"
+  check_install "$project"
 }
 
 owned="$tmp/owned"
@@ -55,6 +62,7 @@ grep -Fqx 'PASS gd-router package_enable reachable=1' "$tmp/enable.log"
 grep -Eq '^GdRouter="\*(res://addons/@aviorstudio_gd-router/autoload.gd|uid://[a-z0-9]+)"$' "$owned/project.godot"
 run_editor "$owned" "$tmp/restart.log" --quit-after 2
 GODOT_BIN="$godot" GODOT_PROJECT_DIR="$owned" "$root/tests/run_godot_test.sh" "$owned/smoke.gd" "PASS gd-router package_smoke reachable=1"
+check_install "$owned"
 web_dir="${WEB_EXPORT_DIR:-$owned/web}"
 mkdir -p "$web_dir"
 export_log="$tmp/web-export.log"
@@ -67,6 +75,7 @@ if [ "$export_status" -ne 0 ] || grep -Eq '(^|[[:space:]])(SCRIPT ERROR:|ERROR:|
   echo "packaged Web export failed with status $export_status" >&2
   exit 1
 fi
+check_install "$owned"
 test -s "$web_dir/index.html"
 test -s "$web_dir/index.wasm"
 echo "PASS gd-router web_export reachable=1 path=$web_dir/index.html"
@@ -85,8 +94,13 @@ cp "$fixtures/consumer_router.gd" "$consumer/consumer_router.gd"
 install_fixture "$consumer"
 run_editor "$consumer" "$tmp/consumer-import.log" --quit-after 2
 run_editor "$consumer" "$tmp/consumer-enable.log" --script res://enable_plugin.gd
+grep -Fqx 'GdRouter="*res://consumer_router.gd"' "$consumer/project.godot"
+grep -Fqx 'ConsumerOwned="*res://consumer_router.gd"' "$consumer/project.godot"
+grep -Fqx 'sentinel="preserve consumer configuration"' "$consumer/project.godot"
 run_editor "$consumer" "$tmp/consumer-disable.log" --script res://disable_plugin.gd
 grep -Fq 'GdRouter="*res://consumer_router.gd"' "$consumer/project.godot"
 run_editor "$consumer" "$tmp/consumer-restart.log" --quit-after 2
+grep -Fqx 'ConsumerOwned="*res://consumer_router.gd"' "$consumer/project.godot"
+grep -Fqx 'sentinel="preserve consumer configuration"' "$consumer/project.godot"
 
 echo "PASS gd-router package_lifecycle reachable=1 editor_restarts=4 ownership=preserved"
