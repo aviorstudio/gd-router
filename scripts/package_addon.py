@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import stat
 import tempfile
@@ -46,6 +47,37 @@ def check_source(entries: list[str]) -> None:
         missing = sorted(set(entries) - set(actual))
         unexpected = sorted(set(actual) - set(entries))
         raise ValueError(f"closed manifest mismatch; missing={missing}; unexpected={unexpected}")
+    # Derive coverage from scripts, not the manifest's UID entries: deleting a
+    # sidecar from both source and manifest must still fail. This policy is for
+    # shipped GDScript only; legacy orphan sidecars remain explicitly declared.
+    identities: dict[str, str] = {}
+    for script in (entry for entry in actual if entry.endswith(".gd")):
+        sidecar = script + ".uid"
+        if sidecar not in actual:
+            raise ValueError(f"missing shipped script UID: {sidecar}")
+        uid = (ADDON / sidecar).read_text().strip()
+        if not re.fullmatch(r"uid://[a-z0-9]+", uid):
+            raise ValueError(f"invalid shipped script UID: {sidecar}")
+        if uid in identities:
+            raise ValueError(f"duplicate shipped script UID: {sidecar} and {identities[uid]}")
+        identities[uid] = sidecar
+
+
+def inspect_install(archive_path: Path, installed: Path) -> None:
+    """Compare every installed addon file and byte, including generated UIDs."""
+    actual: dict[str, bytes] = {}
+    for path in installed.rglob("*"):
+        if path.is_symlink():
+            raise ValueError(f"installed addon contains a symlink: {path}")
+        if path.is_file():
+            actual[path.relative_to(installed).as_posix()] = path.read_bytes()
+    with zipfile.ZipFile(archive_path) as archive:
+        expected = {info.filename: archive.read(info) for info in archive.infolist()}
+    missing = sorted(expected.keys() - actual.keys())
+    unexpected = sorted(actual.keys() - expected.keys())
+    changed = sorted(name for name in expected.keys() & actual.keys() if expected[name] != actual[name])
+    if missing or unexpected or changed:
+        raise ValueError(f"installed addon differs from archive; missing={missing}; unexpected={unexpected}; changed={changed}")
 
 
 def build(output: Path, entries: list[str]) -> None:
@@ -101,6 +133,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=DEFAULT_ZIP)
     parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--installed", type=Path, help="verify the complete installed addon tree against the ZIP")
     args = parser.parse_args()
     output = args.output.resolve()
     entries = declared_files()
@@ -108,6 +141,9 @@ def main() -> None:
     if not args.verify_only:
         build(output, entries)
     inspect_archive(output, entries)
+    if args.installed is not None:
+        inspect_install(output, args.installed)
+        print("PASS gd-router installed_tree unchanged=1")
     print(f"PACKAGE_ZIP={output}")
     print(f"PACKAGE_SHA256={sha256(output)}")
     print(f"INSTALLED_TREE_SHA256={tree_digest(output, entries)}")

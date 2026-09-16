@@ -3,6 +3,7 @@ set -euo pipefail
 
 tests="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+python3 "$tests/package_contract_test.py"
 "$tests/runner_contract_test.sh"
 
 shopt -s nullglob

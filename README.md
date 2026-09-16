@@ -254,6 +254,25 @@ Run locally with:
 
 CI and release both require Godot 4.7.2, run negative/restored runner controls, execute every `*_test.gd` with an assertion-reach sentinel and runtime-error/timeout checks, validate the closed release manifest, and test the exact ZIP through plugin enable, editor restart, smoke, disable, restart, and consumer-owned autoload preservation.
 
+Every shipped GDScript must have a committed `.gd.uid` sidecar, even if both the
+sidecar and its manifest entry are accidentally removed. This is a script-only
+coverage rule, not a requirement to add sidecars to every Godot resource. The
+two legacy orphan sidecars remain explicitly declared; this check does not
+silently delete or migrate them.
+
+The lifecycle gate compares every addon-relative file path and byte against
+the exact ZIP before startup and after each editor invocation, native smoke,
+and Web export. Generated UIDs are not ignored, and no reinstall masks import
+changes. Disposable contract tests exercise missing, mutated, and extra UID
+and non-UID files, reject changed archive paths and bytes, and restore the
+known-good fixtures. To run these checks separately:
+
+```sh
+python3 tests/package_contract_test.py
+./scripts/package_addon.py
+./tests/package_lifecycle_test.sh dist/@aviorstudio_gd-router.zip
+```
+
 **Correction (fieldsofrevik#152):** the earlier text said CI ran `tests/test.sh` “when available.” That conditional description overstated the gate: a missing suite could be skipped, runtime errors followed by exit zero were not rejected, releases rebuilt untested bytes, and editor/package lifecycle was not exercised. The suite and exact-package lifecycle are now mandatory in both CI and release.
 
 ## License

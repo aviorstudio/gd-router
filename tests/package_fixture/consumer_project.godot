@@ -9,6 +9,11 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 GdRouter="*res://consumer_router.gd"
+ConsumerOwned="*res://consumer_router.gd"
+
+[consumer]
+
+sentinel="preserve consumer configuration"
 
 [editor_plugins]
 
