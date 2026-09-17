@@ -46,6 +46,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_cancel_pending_screen()
+	_drain_abandoned_loads(true)
+	set_process(false)
 	if router != null and is_instance_valid(router) and router.has_method("unregister_host"):
 		router.call("unregister_host", self)
 
@@ -81,12 +83,9 @@ func _process(_delta: float) -> void:
 	var load_status := ResourceLoader.load_threaded_get_status(request.scene_path)
 	if load_status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
 		return
-	if load_status != ResourceLoader.THREAD_LOAD_LOADED:
-		_fail_mount(request, "Route scene could not be loaded: %s" % request.scene_path, mount_generation)
-		return
-	var packed_scene := ResourceLoader.load_threaded_get(request.scene_path) as PackedScene
+	var packed_scene := _claim_threaded_load(request.scene_path) as PackedScene
 	_pending_load_started = false
-	if packed_scene == null:
+	if load_status != ResourceLoader.THREAD_LOAD_LOADED or packed_scene == null:
 		_fail_mount(request, "Route scene could not be loaded: %s" % request.scene_path, mount_generation)
 		return
 	var next_screen := packed_scene.instantiate()
@@ -146,10 +145,8 @@ func _cancel_pending_screen() -> void:
 	_clear_pending_transition()
 	if _pending_load_started and _pending_request != null and _pending_screen == null and not _pending_request.scene_path.is_empty():
 		var path: String = _pending_request.scene_path
-		var status := ResourceLoader.load_threaded_get_status(path)
-		if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS or status == ResourceLoader.THREAD_LOAD_LOADED:
-			if not _abandoned_scene_paths.has(path):
-				_abandoned_scene_paths.append(path)
+		if not _abandoned_scene_paths.has(path):
+			_abandoned_scene_paths.append(path)
 	if _pending_screen != null and is_instance_valid(_pending_screen):
 		_pending_screen.queue_free()
 	_pending_screen = null
@@ -168,15 +165,22 @@ func _clear_pending_transition() -> void:
 	_pending_transition = null
 	_pending_transition_callback = Callable()
 
-func _drain_abandoned_loads() -> void:
+func _drain_abandoned_loads(force: bool = false) -> void:
 	for index in range(_abandoned_scene_paths.size() - 1, -1, -1):
 		var path := _abandoned_scene_paths[index]
+		if _pending_load_started and _pending_request != null and _pending_request.scene_path == path:
+			_abandoned_scene_paths.remove_at(index)
+			continue
 		var status := ResourceLoader.load_threaded_get_status(path)
-		if status == ResourceLoader.THREAD_LOAD_LOADED:
-			ResourceLoader.load_threaded_get(path)
-			_abandoned_scene_paths.remove_at(index)
-		elif status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-			_abandoned_scene_paths.remove_at(index)
+		if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS and not force:
+			continue
+		_claim_threaded_load(path)
+		_abandoned_scene_paths.remove_at(index)
+
+func _claim_threaded_load(path: String) -> Resource:
+	if path.is_empty():
+		return null
+	return ResourceLoader.load_threaded_get(path)
 
 func _resolve_router() -> void:
 	if router != null and is_instance_valid(router):
