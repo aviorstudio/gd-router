@@ -82,6 +82,8 @@ func _initialize() -> void:
 	await _test_shared_transition_ignores_stale_await(failures)
 	await _test_failed_mount_disposes_partial_scene(failures)
 	await _test_destroyed_host_fails_and_disposes_mount(failures)
+	await _test_failed_existing_scene_claims_load_token(failures)
+	await _test_exit_tree_drains_outstanding_load(failures)
 	await _test_freed_previous_scene_completes_latest_mount(failures)
 	await _test_repeated_replace_and_back(failures)
 	# Let canceled async mount continuations observe their invalid generation and
@@ -499,6 +501,50 @@ func _test_destroyed_host_fails_and_disposes_mount(failures: Array[String]) -> v
 	router.queue_free()
 	await process_frame
 
+func _test_failed_existing_scene_claims_load_token(failures: Array[String]) -> void:
+	var broken_path := "res://tests/fixtures/screens/broken_load/broken_load.tscn"
+	var router := RouterScript.new()
+	root.add_child(router)
+	var host := _registered_host(router)
+	router.set_routes([
+		_route("broken_load", broken_path),
+		_route("home", "res://tests/fixtures/screens/home_screen/home_screen.tscn"),
+	])
+	var previous_print_errors := Engine.print_error_messages
+	Engine.print_error_messages = false
+	var broken_result: RefCounted = router.go_to("broken_load")
+	var home_result: RefCounted = router.go_to("home")
+	await _wait_result(home_result)
+	await _wait_until_load_settled(broken_path)
+	Engine.print_error_messages = previous_print_errors
+	if home_result.status != RouteResultScript.Status.SUCCEEDED or host.current_screen == null or host.current_screen.name != "HomeScreen":
+		failures.append("Expected latest-wins to mount home after abandoning a failed existing scene load")
+	if broken_result.status != RouteResultScript.Status.SUPERSEDED:
+		failures.append("Expected the failed existing scene request to be superseded")
+	if not _load_token_claimed(broken_path):
+		failures.append("Expected abandoned FAILED load token for an existing scene to be claimed")
+	host.queue_free()
+	router.queue_free()
+	await process_frame
+
+func _test_exit_tree_drains_outstanding_load(failures: Array[String]) -> void:
+	var scene_path := "res://tests/fixtures/screens/home_screen/home_screen.tscn"
+	var router := RouterScript.new()
+	root.add_child(router)
+	var host := _registered_host(router)
+	router.set_routes([_route("home", scene_path)])
+	var result: RefCounted = router.go_to("home")
+	host.free()
+	await _wait_result(result)
+	if result.status != RouteResultScript.Status.FAILED:
+		failures.append("Expected destroying RouteHost during an outstanding load to fail the navigation")
+	if router.get_current_route() != "":
+		failures.append("Expected outstanding-load host destruction to leave router state uncommitted")
+	if not _load_token_claimed(scene_path):
+		failures.append("Expected _exit_tree to claim the outstanding LoadToken")
+	router.queue_free()
+	await process_frame
+
 func _test_freed_previous_scene_completes_latest_mount(failures: Array[String]) -> void:
 	var router := RouterScript.new()
 	root.add_child(router)
@@ -558,6 +604,15 @@ func _wait_for_transition_calls(manual_transition: Resource, expected: int) -> v
 		if int(manual_transition.get("call_count")) >= expected:
 			return
 		await process_frame
+
+func _wait_until_load_settled(path: String) -> void:
+	for _frame in range(120):
+		if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return
+		await process_frame
+
+func _load_token_claimed(path: String) -> bool:
+	return ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
 
 func _registered_host(router: Node) -> Control:
 	var host := RouteHostScript.new()
