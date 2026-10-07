@@ -232,3 +232,7 @@ Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports
 ## License
 
 See `LICENSE`.
+
+## Standard developer commands
+
+Run `make install` to install the checksum-pinned engineering release and exact Godot engine into checkout-owned output. Run `make check` for the existing package, behavioral and editor-lifecycle gates in order. `make build` creates the package; `make test` runs the behavioral gates, and `make artifact-smoke` checks the built package in the editor. `make clean` removes generated output. Development happens in a consuming Godot project, so standalone dev/stop are unsupported.

@@ -3,3 +3,5 @@
 .playwright-cli/
 __pycache__/
 dist/
+
+.artifacts/
