@@ -19,12 +19,14 @@ concurrency: release-${{ github.repository }}
 
 jobs:
   verify:
+    name: "Verify release"
     runs-on: blacksmith-2vcpu-ubuntu-2404
     # Bounded, so a step that hangs fails here rather than sitting until the
     # runner's own timeout hours later.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: "Check out source"
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -77,7 +79,7 @@ jobs:
       - name: Record exact package identity
         run: ./scripts/package_addon.py --output dist/@aviorstudio_gd-router.zip --verify-only | tee dist/package-identity.txt
 
-      - name: Upload tested release bytes
+      - name: "Upload artifacts"
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: tested-release-${{ github.sha }}
@@ -88,14 +90,17 @@ jobs:
           retention-days: 7
 
   publish:
+    name: "Publish release"
     needs: verify
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: "Check out source"
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: "Download artifacts"
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: tested-release-${{ github.sha }}
           path: dist
@@ -117,7 +122,7 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
         run: gh release create "$TAG" dist/@aviorstudio_gd-router.zip --target "$GITHUB_SHA" --title "$TAG" --notes-file dist/package-identity.txt
 
-      - name: Publish to GDAM
+      - name: "Publish addon"
         uses: aviorstudio/gdam-actions/publish@6677226d9353df1d410f3e7f5075e13b3b7d5308 # v0.5.1
         with:
           tag: ${{ steps.release.outputs.tag }}
