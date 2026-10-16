@@ -21,7 +21,8 @@ runs:
   - name: Build and verify exact release package
     shell: bash
     run: make build
-  - uses: ./.github/actions/setup-godot
+  - name: "Set up Godot"
+    uses: ./.github/actions/setup-godot
   - name: Godot tests
     shell: bash
     run: make test
