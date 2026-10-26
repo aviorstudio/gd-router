@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: c35722c7021803ba125b77587647292ea4121409f92c4abbc22b35af11372c5e -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 3125a3abce0fc2573f25febaa40fb1fdd772b3fe7a8b903cc652861fce904083 -->
 
 # gd-router
 
@@ -214,7 +214,7 @@ It demonstrates `RouteHost`, `RouteMap`, and `RouteLink` together.
 
 ## Local Addon Development
 
-Use GDAM links to test unreleased addon changes in a game project:
+Use gdam links to test unreleased addon changes in a game project:
 
 ```sh
 gdam link @aviorstudio/gd-router /path/to/gd-router/addon
@@ -235,7 +235,7 @@ See `LICENSE`.
 
 ## Repository development
 
-Install the [Komizo release](https://github.com/nicodes/komizo#install) matching `komizo.lock`.
+Install the [komizo release](https://github.com/nicodes/komizo#install) matching `komizo.lock`.
 
 ```sh
 komizo check                 # Source, runtime, package and installed-addon checks
