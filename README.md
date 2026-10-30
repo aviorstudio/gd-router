@@ -1,3 +1,234 @@
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 3531971635131914252cf61ba3de9275dfd00674677021f6a638a0c1bef60964 -->
+
 # gd-router
 
-For current client installation and usage, see https://github.com/aviorstudio/gd-router#readme.
+Editor-first hosted screen routing for Godot 4 app shells.
+
+Use this addon when your project has a persistent main scene and wants to route between screen scenes inside a `RouteHost`. `GdRouter` owns navigation state, params, and history; `RouteHost` owns the mounted screen node.
+
+## Installation
+
+### Via gdam
+
+`gdam install @aviorstudio/gd-router`
+
+### Manual
+
+Copy `addon/` into `res://addons/@aviorstudio_gd-router/` and enable the plugin.
+
+## Quick Start
+
+The plugin installs an autoload named `GdRouter` and adds editor types for `RouteHost`, `RouteMap`, `RouteDefinition`, `RouteTransition`, and `RouteLink`.
+
+Create a main scene like this:
+
+```text
+Main.tscn
+  RouteHost
+```
+
+Create screens like this:
+
+```text
+res://src/screens/home_screen/home_screen.tscn
+res://src/screens/game_screen/game_screen.tscn
+```
+
+Select `RouteHost` in the editor and set:
+
+- `initial_route`: `home`
+- `auto_discover`: `true`
+- `routes_dir`: `res://src/screens`
+- `route_dir_suffix`: `_screen`
+
+Navigate from code:
+
+```gdscript
+func _on_play_button_pressed() -> void:
+	GdRouter.go_to("game", {"level": "level_01"})
+```
+
+Or add a `RouteLink` button and set its `route_name` in the Inspector.
+
+For a production route map, use Godot's top menu:
+
+```text
+Project > Tools > GD Router: Create Route Map From Screens
+```
+
+This scans `res://src/screens/*_screen/*_screen.tscn` and creates `res://src/static/config/main_route_map.tres`.
+
+## Recommended Project Shape
+
+```text
+res://src/main/main.tscn
+res://src/screens/home_screen/home_screen.tscn
+res://src/screens/game_screen/game_screen.tscn
+res://src/static/config/main_route_map.tres
+```
+
+`main.tscn` should stay persistent for app startup, autoload coordination, telemetry, audio, save systems, and other shell-level lifecycle. Routed screens should be mounted under a `RouteHost` child.
+
+## Navigation
+
+```gdscript
+var navigation = GdRouter.go_to("settings", {"tab": "audio"})
+if navigation.is_pending():
+	await navigation.completed
+if navigation.is_success():
+	print("settings mounted")
+
+GdRouter.replace("home")
+GdRouter.go_back()
+```
+
+Navigation is transactional and latest-wins. `go_to`, `replace`, and `go_back` return a `RouteResult` whose `status` is `PENDING`, `SUCCEEDED`, `FAILED`, or `SUPERSEDED`. Route, params, and history commit only after the matching generation mounts successfully. A newer valid navigation supersedes an older pending request; stale resource or transition completions cannot mount or commit. Immediate failures (unknown route, blocked guard, or no back history) are already settled when returned, so inspect `status` before awaiting `completed`.
+
+## What You Get
+
+- `GdRouter`: autoload navigation API, route table, params, and history.
+- `RouteHost`: scene-tree outlet that mounts the active screen as a child.
+- `RouteMap`: editor-visible route list resource for production projects.
+- `RouteDefinition`: route name, screen scene path, metadata, and optional guard.
+- `RouteTransition`: assignable transition resource.
+- `InstantRouteTransition`: no-animation transition.
+- `CrossfadeRouteTransition`: simple screen crossfade and slide transition.
+- `RouteLink`: button node that navigates to a route from Inspector data.
+
+## Auto Discovery
+
+The router can auto-discover scenes that follow this convention:
+
+```text
+res://src/screens/*_screen/*_screen.tscn
+```
+
+For example, `res://src/screens/home_screen/home_screen.tscn` becomes route `home`.
+
+Auto-discovery is useful while prototyping. A committed `RouteMap.tres` is recommended for larger projects because routes become inspectable and reviewable in the Godot editor.
+
+## Route Maps
+
+Create a `RouteMap` resource and assign it to `RouteHost.route_map` when you want explicit editor-authored routes. Each `RouteDefinition` can set:
+
+- `route_name`
+- `scene_path`
+- `title`
+- `metadata`
+- `guard`
+
+When a `RouteMap` is assigned, `RouteHost` uses it instead of auto-discovery.
+
+For production projects, prefer a committed route map over auto-discovery. Auto-discovery is excellent for early prototyping, but a `RouteMap.tres` gives designers and reviewers an explicit source of truth in the editor.
+
+If `RouteHost.initial_route` is empty, the host uses `RouteMap.initial_route`.
+
+### Route Map Generation
+
+The editor tool menu action creates a route map from the standard screen layout:
+
+```text
+res://src/screens/home_screen/home_screen.tscn -> home
+res://src/screens/game_screen/game_screen.tscn -> game
+```
+
+When updating an existing route map, the generator preserves route titles, metadata, and guards for matching route names while refreshing discovered scene paths. This keeps route maps editor-authored without making designers manually re-enter obvious paths.
+
+## Transitions
+
+Assign a `RouteTransition` resource to `RouteHost.transition`.
+
+Built-in transitions:
+
+- `InstantRouteTransition`: swaps screens without animation.
+- `CrossfadeRouteTransition`: fades between screens with a small slide-in.
+
+Custom transitions should extend `RouteTransition` and emit `finished` when the host may free the previous screen.
+
+Preset resources are included at:
+
+```text
+res://addons/@aviorstudio_gd-router/presets/instant_route_transition.tres
+res://addons/@aviorstudio_gd-router/presets/crossfade_route_transition.tres
+```
+
+## Guards
+
+Assign a `RouteGuard` resource to `RouteDefinition.guard` when a route needs to block entry.
+
+```gdscript
+extends RouteGuard
+
+func can_enter(context: RouteContext) -> bool:
+	return context.params.get("unlocked", false)
+```
+
+Guards run before the host loads the target scene. A blocked guard leaves the current route and history unchanged.
+
+## Route Links
+
+`RouteLink` is a `Button` subclass for editor-authored navigation. Set its action in the Inspector:
+
+- `GO_TO`: calls `GdRouter.go_to(route_name, params)`.
+- `REPLACE`: calls `GdRouter.replace(route_name, params)`.
+- `BACK`: calls `GdRouter.go_back()`.
+
+Use `RouteLink` for simple menu buttons and keep direct `GdRouter` calls for screen-specific behavior that needs custom code.
+
+## Editor Warnings
+
+`RouteHost` surfaces configuration warnings in the editor when:
+
+- no route map is assigned and auto-discovery is disabled
+- `routes_dir` does not exist
+- no routes are discovered
+- the initial route is missing
+- route map entries point at missing scenes
+- the transition resource does not implement `RouteTransition`
+
+## App Shell Model
+
+`gd-router` is designed around a persistent app shell:
+
+```text
+Main scene: app startup, autoload coordination, observability, layout shell
+RouteHost: mounted active screen
+Screens: authored destination scenes
+Components: reusable parts inside screens
+```
+
+The router does not replace the whole `SceneTree.current_scene` by default. Whole-scene replacement is intentionally not the primary model because it makes global app lifecycle and editor-authored shells harder to manage.
+
+## Example
+
+This repository includes a small app-shell example:
+
+```text
+examples/app_shell/main.tscn
+examples/app_shell/src/static/config/main_route_map.tres
+examples/app_shell/src/screens/home_screen/home_screen.tscn
+examples/app_shell/src/screens/game_screen/game_screen.tscn
+```
+
+It demonstrates `RouteHost`, `RouteMap`, and `RouteLink` together.
+
+## Local Addon Development
+
+Use gdam links to test unreleased addon changes in a game project:
+
+```sh
+gdam link @aviorstudio/gd-router /path/to/gd-router/addon
+gdam install
+```
+
+Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports so local paths are never packed into builds.
+
+## Notes
+
+- Works in Godot 4.x native and web exports.
+- Game-specific guards, loading screens, and feature lifecycle should live in your game code.
+
+
+## License
+
+See `LICENSE`.
