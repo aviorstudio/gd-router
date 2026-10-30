@@ -23,8 +23,8 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         fetch-depth: 0
-    - name: Set up locked komizo
-      uses: nicodes/komizo/setup@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
+    - name: Set up development tools
+      uses: nicodes/tools/setup@f7e243524ce2aa29f299e4c79db33001f72f4a30
       env:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
@@ -32,7 +32,7 @@ jobs:
       id: release
       env:
         BUMP: ${{ inputs.bump }}
-      run: |
+      run: |-
         set -euo pipefail
         if [ "$GITHUB_REF" != "refs/heads/main" ]; then
           echo 'Run releases from the main branch.' >&2
@@ -66,9 +66,10 @@ jobs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
         echo "tag=$tag" >> "$GITHUB_OUTPUT"
     - name: Check project
-      uses: nicodes/komizo/run@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
-      with:
-        target: check
+      shell: bash
+      run: |-
+        set -euo pipefail
+        mise run check
     - name: Record exact package identity
       run: ./scripts/package_addon.py --output dist/@aviorstudio_gd-router.zip --verify-only | tee dist/package-identity.txt
     - name: Upload artifacts
@@ -104,7 +105,7 @@ jobs:
       id: release
       env:
         BUMP: ${{ inputs.bump }}
-      run: |
+      run: |-
         set -euo pipefail
         ./scripts/package_addon.py --output dist/@aviorstudio_gd-router.zip --verify-only
         version="$(sed -n -E 's/^version="([^"]+)"/\1/p' addon/plugin.cfg)"

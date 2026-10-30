@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 3531971635131914252cf61ba3de9275dfd00674677021f6a638a0c1bef60964 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: b344115625940f1912623006bba2a99946e5f895eb276138e9714f9ab9f57b86 -->
 
 # gd-router
 
@@ -232,3 +232,16 @@ Keep `gdam.link.json` local. If it lives under `res://`, exclude it from exports
 ## License
 
 See `LICENSE`.
+
+## Contributor checks
+
+Install [mise](https://mise.jdx.dev/), then prepare the pinned development helpers and run the complete native gate:
+
+```sh
+git clone https://github.com/nicodes/tools.git .ci-tools
+git -C .ci-tools checkout --detach f7e243524ce2aa29f299e4c79db33001f72f4a30
+mise install
+mise run check
+```
+
+`mise.toml` owns tool versions and tasks. Engine and template downloads are checksum verified. `mise run build` packages the addon; `mise run test` runs its declared tests. The complete check also validates the installed artifact. Build and test receipts stay in `.artifacts/verification`.
