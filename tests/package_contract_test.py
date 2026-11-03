@@ -22,7 +22,7 @@ class PackageContractTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for directory in ("addon", "packaging", "scripts"):
+        for directory in ("addon", "scripts"):
             shutil.copytree(ROOT / directory, self.root / directory)
         self.archive = self.root / "package.zip"
 
