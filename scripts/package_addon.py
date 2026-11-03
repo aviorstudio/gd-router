@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ADDON = ROOT / "addon"
-MANIFEST = ROOT / "packaging" / "addon-manifest.txt"
+MANIFEST = ROOT / "scripts/package" / "addon-manifest.txt"
 DEFAULT_ZIP = ROOT / "dist" / "@aviorstudio_gd-router.zip"
 
 
