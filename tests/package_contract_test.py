@@ -22,7 +22,7 @@ class PackageContractTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for directory in ("addon", "packaging", "scripts"):
+        for directory in ("addon", "scripts"):
             shutil.copytree(ROOT / directory, self.root / directory)
         self.archive = self.root / "package.zip"
 
@@ -44,7 +44,7 @@ class PackageContractTest(unittest.TestCase):
         relative = "src/core/route_result.gd.uid"
         sidecar = self.root / "addon" / relative
         original = sidecar.read_bytes()
-        manifest = self.root / "packaging/addon-manifest.txt"
+        manifest = self.root / "scripts/package/addon-manifest.txt"
         declared = manifest.read_text()
         sidecar.unlink()
         manifest.write_text(declared.replace(relative + "\n", ""))
@@ -58,7 +58,7 @@ class PackageContractTest(unittest.TestCase):
         self.assertIn("invalid shipped script UID", self.build(False))
 
     def test_manifest_only_uid_removal_fails(self):
-        manifest = self.root / "packaging/addon-manifest.txt"
+        manifest = self.root / "scripts/package/addon-manifest.txt"
         manifest.write_text(manifest.read_text().replace("src/core/route_result.gd.uid\n", ""))
         self.assertIn("closed manifest mismatch", self.build(False))
 
