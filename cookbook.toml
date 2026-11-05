@@ -1,0 +1,51 @@
+version = 1
+recipe = "godot-addon"
+
+[package]
+source = "addon"
+manifest = "package-manifest.txt"
+archive = "dist/@aviorstudio_gd-router.zip"
+script_uids = true
+
+[[components.fixture_exports]]
+project = "tests/package/web"
+preset = "Web"
+output = "dist/web-smoke/index.html"
+timeout = 120
+import_timeout = 45
+required_outputs = ["index.html", "index.js", "index.wasm", "index.pck"]
+install_archive = "addons/@aviorstudio_gd-router"
+
+[lint]
+required_paths = ["addon/plugin.cfg", "addon/plugin.gd", "addon/autoload.gd", "package-manifest.txt"]
+
+[format]
+paths = ["addon", "tests/hosted_router_test.gd", "tests/package/web", "tests/package_fixture"]
+
+[clean]
+paths = ["dist", ".artifacts/build", ".artifacts/godot", ".artifacts/godot-data", ".artifacts/godot-config", ".artifacts/tmp", ".artifacts/verification", ".godot"]
+
+[publication]
+mode = "bump"
+validation_timeout = 20
+publish_timeout = 10
+tag_prefix = "v"
+initial = "first"
+
+[[tests.unit]]
+runner = "python"
+path = "tests/test_runner_controls.py"
+timeout = 120
+[[tests.unit]]
+runner = "python"
+path = "tests/package_contract_test.py"
+timeout = 60
+[[tests.unit]]
+runner = "godot"
+path = "tests/hosted_router_test.gd"
+timeout = 45
+sentinel = "PASS gd-router hosted_router_test reachable=1"
+[[tests.integration]]
+runner = "bash"
+path = "tests/package_lifecycle_test.sh"
+timeout = 600
