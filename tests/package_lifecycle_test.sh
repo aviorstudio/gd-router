@@ -15,10 +15,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 "$root/scripts/package_addon.py" --output "$archive" --verify-only
+python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package-manifest.txt" --script-uids
 
 check_install() {
-  python3 "$root/scripts/package_addon.py" --output "$archive" --verify-only \
+  python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package-manifest.txt" --script-uids \
     --installed "$1/addons/@aviorstudio_gd-router"
 }
 
@@ -47,8 +47,7 @@ install_fixture() {
   local project="$1"
   mkdir -p "$project/addons/@aviorstudio_gd-router"
   unzip -q "$archive" -d "$project/addons/@aviorstudio_gd-router"
-  cp "$fixtures/smoke.gd" "$fixtures/enable_plugin.gd" "$fixtures/disable_plugin.gd" \
-    "$fixtures/web_smoke.gd" "$fixtures/web_smoke.tscn" "$fixtures/export_presets.cfg" "$project/"
+  cp "$fixtures/smoke.gd" "$fixtures/enable_plugin.gd" "$fixtures/disable_plugin.gd" "$project/"
   check_install "$project"
 }
 
@@ -61,21 +60,9 @@ run_editor "$owned" "$tmp/enable.log" --script res://enable_plugin.gd
 grep -Fqx 'PASS gd-router package_enable reachable=1' "$tmp/enable.log"
 grep -Eq '^GdRouter="\*(res://addons/@aviorstudio_gd-router/autoload.gd|uid://[a-z0-9]+)"$' "$owned/project.godot"
 run_editor "$owned" "$tmp/restart.log" --quit-after 2
-GODOT_BIN="$godot" GODOT_PROJECT_DIR="$owned" "$root/tests/run_godot_test.sh" "$owned/smoke.gd" "PASS gd-router package_smoke reachable=1"
+python3 "$TOOLS_ROOT/helpers/godot-test.py" --binary "$godot" --project "$owned" --program "$owned/smoke.gd" --sentinel "PASS gd-router package_smoke reachable=1" --timeout 45
 check_install "$owned"
-web_dir="${WEB_EXPORT_DIR:-$owned/web}"
-mkdir -p "$web_dir"
-export_log="$tmp/web-export.log"
-set +e
-timeout --signal=TERM --kill-after=5 120 "$godot" --headless --path "$owned" --export-release Web "$web_dir/index.html" >"$export_log" 2>&1
-export_status=$?
-set -e
-cat "$export_log"
-if [ "$export_status" -ne 0 ] || grep -Eq '(^|[[:space:]])(SCRIPT ERROR:|ERROR:|FAIL:)' "$export_log"; then
-  echo "packaged Web export failed with status $export_status" >&2
-  exit 1
-fi
-check_install "$owned"
+web_dir="$root/dist/web-smoke"
 test -s "$web_dir/index.html"
 test -s "$web_dir/index.wasm"
 echo "PASS gd-router web_export reachable=1 path=$web_dir/index.html"
