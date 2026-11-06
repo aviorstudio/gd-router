@@ -24,12 +24,12 @@ class PackageContractTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         shutil.copytree(ROOT / "addon", self.root / "addon")
-        shutil.copyfile(ROOT / "package-manifest.txt", self.root / "package-manifest.txt")
+        shutil.copyfile(ROOT / "package.files", self.root / "package.files")
         self.archive = self.root / "package.zip"
 
     def build(self, succeeds=True):
         try:
-            package.build(self.root / "addon", self.root / "package-manifest.txt", self.archive, script_uids=True)
+            package.build(self.root / "addon", self.root / "package.files", self.archive, script_uids=True)
         except ValueError as error:
             self.assertFalse(succeeds, str(error))
             return str(error)
@@ -46,7 +46,7 @@ class PackageContractTest(unittest.TestCase):
         relative = "src/core/route_result.gd.uid"
         sidecar = self.root / "addon" / relative
         original = sidecar.read_bytes()
-        manifest = self.root / "package-manifest.txt"
+        manifest = self.root / "package.files"
         declared = manifest.read_text()
         sidecar.unlink()
         manifest.write_text(declared.replace(relative + "\n", ""))
@@ -60,7 +60,7 @@ class PackageContractTest(unittest.TestCase):
         self.assertIn("script UIDs must be valid and unique", self.build(False))
 
     def test_manifest_only_uid_removal_fails(self):
-        manifest = self.root / "package-manifest.txt"
+        manifest = self.root / "package.files"
         manifest.write_text(manifest.read_text().replace("src/core/route_result.gd.uid\n", ""))
         self.assertIn("source differs from the closed manifest", self.build(False))
 
@@ -81,7 +81,7 @@ class PackageContractTest(unittest.TestCase):
         installed = self.root / "installed"
         with zipfile.ZipFile(self.archive) as archive:
             archive.extractall(installed)
-        package.verify(self.archive, self.root / "package-manifest.txt", source=self.root / "addon", installed=installed, script_uids=True)
+        package.verify(self.archive, self.root / "package.files", source=self.root / "addon", installed=installed, script_uids=True)
         for relative, extra_name in (
             ("src/core/route_result.gd.uid", "generated.gd.uid"),
             ("plugin.cfg", "unexpected.cfg"),
@@ -98,10 +98,10 @@ class PackageContractTest(unittest.TestCase):
                     else:
                         extra.write_text("unexpected\n")
                     with self.assertRaises(ValueError):
-                        package.verify(self.archive, self.root / "package-manifest.txt", source=self.root / "addon", installed=installed, script_uids=True)
+                        package.verify(self.archive, self.root / "package.files", source=self.root / "addon", installed=installed, script_uids=True)
                     target.write_bytes(original)
                     extra.unlink(missing_ok=True)
-                    package.verify(self.archive, self.root / "package-manifest.txt", source=self.root / "addon", installed=installed, script_uids=True)
+                    package.verify(self.archive, self.root / "package.files", source=self.root / "addon", installed=installed, script_uids=True)
 
     def test_archive_path_and_byte_controls(self):
         self.build()
@@ -121,9 +121,9 @@ class PackageContractTest(unittest.TestCase):
                     if mutation == "unexpected":
                         archive.writestr("unexpected.cfg", b"unexpected\n")
                 with self.assertRaises(ValueError):
-                    package.verify(self.archive, self.root / "package-manifest.txt", source=self.root / "addon", script_uids=True)
+                    package.verify(self.archive, self.root / "package.files", source=self.root / "addon", script_uids=True)
                 self.archive.write_bytes(original)
-                package.verify(self.archive, self.root / "package-manifest.txt", source=self.root / "addon", script_uids=True)
+                package.verify(self.archive, self.root / "package.files", source=self.root / "addon", script_uids=True)
 
 
 if __name__ == "__main__":
