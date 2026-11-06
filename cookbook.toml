@@ -2,8 +2,6 @@ version = 1
 recipe = "godot-addon"
 
 [package]
-source = "addon"
-manifest = "package-manifest.txt"
 archive = "dist/@aviorstudio_gd-router.zip"
 script_uids = true
 
@@ -17,7 +15,7 @@ required_outputs = ["index.html", "index.js", "index.wasm", "index.pck"]
 install_archive = "addons/@aviorstudio_gd-router"
 
 [lint]
-required_paths = ["addon/plugin.cfg", "addon/plugin.gd", "addon/autoload.gd", "package-manifest.txt"]
+required_paths = ["addon/plugin.cfg", "addon/plugin.gd", "addon/autoload.gd", "package.files"]
 
 [format]
 paths = ["addon", "tests/hosted_router_test.gd", "tests/package/web", "tests/package_fixture"]

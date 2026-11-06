@@ -15,10 +15,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package-manifest.txt" --script-uids
+python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package.files" --script-uids
 
 check_install() {
-  python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package-manifest.txt" --script-uids \
+  python3 "$TOOLS_ROOT/helpers/addon-package.py" verify --archive "$archive" --source "$root/addon" --manifest "$root/package.files" --script-uids \
     --installed "$1/addons/@aviorstudio_gd-router"
 }
 
